@@ -5,16 +5,12 @@ import {expectResults, getWindowLinks} from '../test/typeahead/common';
 import {Component, DebugElement, ViewChild, ChangeDetectionStrategy} from '@angular/core';
 import {Validators, FormControl, FormGroup, FormsModule, ReactiveFormsModule} from '@angular/forms';
 import {By} from '@angular/platform-browser';
-import {Observable} from 'rxjs/Observable';
-import {Subject} from 'rxjs/Subject';
-import 'rxjs/add/operator/map';
-import 'rxjs/add/operator/debounceTime';
-import 'rxjs/add/operator/merge';
-import 'rxjs/add/operator/filter';
+import {Observable, Subject} from 'rxjs';
 
 import {NgbTypeahead} from './typeahead';
 import {NgbTypeaheadModule} from './typeahead.module';
 import {NgbTypeaheadConfig} from './typeahead-config';
+import {debounceTime, filter, map, merge} from 'rxjs/operators';
 
 const createTestComponent = (html: string) =>
     createGenericTestComponent(html, TestComponent) as ComponentFixture<TestComponent>;
@@ -978,6 +974,21 @@ describe('ngb-typeahead', () => {
              expect(inputEl.selectionEnd).toBe(2);
            });
          }));
+
+      it('should not show hint when there is no result selected', async(() => {
+           const fixture = createTestComponent(
+               `<input type="text" [(ngModel)]="model" [ngbTypeahead]="find" [showHint]="true" [focusFirst]="false"/>`);
+           fixture.detectChanges();
+           const compiled = fixture.nativeElement;
+           const inputEl = getNativeInput(compiled);
+
+           fixture.whenStable().then(() => {
+             changeInput(compiled, 'on');
+             fixture.detectChanges();
+             expectWindowResults(compiled, ['one', 'one more']);
+             expect(inputEl.value).toBe('on');
+           });
+         }));
     });
 
     describe('Custom config', () => {
@@ -1036,19 +1047,21 @@ class TestComponent {
   click$ = new Subject<string>();
 
   find = (text$: Observable<string>) => {
-    this.findOutput$ = text$.merge(this.focus$)
-                           .merge(this.click$.filter(() => !this.typeahead.isPopupOpen()))
-                           .map(text => this._strings.filter(v => v.startsWith(text)));
+    this.findOutput$ = text$.pipe(
+        merge(this.focus$), merge(this.click$.pipe(filter(() => !this.typeahead.isPopupOpen()))),
+        map(text => this._strings.filter(v => v.startsWith(text))));
     return this.findOutput$;
   };
 
-  findAnywhere =
-      (text$: Observable<string>) => { return text$.map(text => this._strings.filter(v => v.indexOf(text) > -1)); };
+  findAnywhere = (text$: Observable<string>) => {
+    return text$.pipe(map(text => this._strings.filter(v => v.indexOf(text) > -1)));
+  };
 
-  findNothing = (text$: Observable<string>) => { return text$.map(text => []); };
+  findNothing = (text$: Observable<string>) => { return text$.pipe(map(text => [])); };
 
-  findObjects =
-      (text$: Observable<string>) => { return text$.map(text => this._objects.filter(v => v.value.startsWith(text))); };
+  findObjects = (text$: Observable<string>) => {
+    return text$.pipe(map(text => this._objects.filter(v => v.value.startsWith(text))));
+  };
 
   formatter = (obj: {id: number, value: string}) => { return `${obj.id} ${obj.value}`; };
 
@@ -1065,7 +1078,7 @@ class TestOnPushComponent {
   private _strings = ['one', 'one more', 'two', 'three'];
 
   find = (text$: Observable<string>) => {
-    return text$.debounceTime(200).map(text => this._strings.filter(v => v.startsWith(text)));
+    return text$.pipe(debounceTime(200), map(text => this._strings.filter(v => v.startsWith(text))));
   };
 }
 
@@ -1074,6 +1087,6 @@ class TestAsyncComponent {
   private _strings = ['one', 'one more', 'two', 'three'];
 
   find = (text$: Observable<string>) => {
-    return text$.debounceTime(200).map(text => this._strings.filter(v => v.startsWith(text)));
+    return text$.pipe(debounceTime(200), map(text => this._strings.filter(v => v.startsWith(text))));
   };
 }

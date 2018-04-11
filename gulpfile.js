@@ -11,7 +11,6 @@ var gulpFormat = require('gulp-clang-format');
 var runSequence = require('run-sequence');
 var tslint = require('gulp-tslint');
 var webpack = require('webpack');
-var typescript = require('typescript');
 var exec = require('child_process').exec;
 var path = require('path');
 var os = require('os');
@@ -184,10 +183,10 @@ gulp.task('tdd', ['clean:tests'], (cb) => {
     cb(e && e.signal !== 'SIGINT' ? e : undefined);
   }).stdout.on('data', function(data) {
 
-    console.log(data);
+    console.log(data.replace('\x1Bc', '').trim());
 
     // starting karma in tdd as soon as 'tsc -w' finishes first compilation
-    if (!startedKarma) {
+    if (!startedKarma && data.includes('Compilation complete')) {
       startedKarma = true;
       startKarmaServer(true, false, function(err) { process.exit(err ? 1 : 0); });
     }
@@ -205,7 +204,7 @@ gulp.task('saucelabs', ['build:tests'], function(done) {
 
 gulp.task('lint', function() {
   return gulp.src([PATHS.src, PATHS.demo, '!demo/src/api-docs.ts'])
-      .pipe(tslint({configuration: require('./tslint.json'), formatter: 'prose'}))
+      .pipe(tslint({configuration: './tslint.json', formatter: 'prose'}))
       .pipe(tslint.report({summarizeFailureOutput: true}));
 });
 
@@ -254,20 +253,36 @@ gulp.task('generate-plunks', function() {
   return gulpFile(plunks, {src: true}).pipe(gulp.dest('demo/src/public/app/components'));
 });
 
+gulp.task('generate-stackblitzes', function() {
+  var getStackblitz = require('./misc/stackblitz-gen');
+  var demoGenUtils = require('./misc/demo-gen-utils');
+  var stackblitzes = [];
+
+  demoGenUtils.getDemoComponentNames().forEach(function(componentName) {
+    stackblitzes = stackblitzes.concat(demoGenUtils.getDemoNames(componentName).reduce(function(soFar, demoName) {
+      soFar.push(
+          {name: `${componentName}/demos/${demoName}/stackblitz.html`, source: getStackblitz(componentName, demoName)});
+      return soFar;
+    }, []));
+  });
+
+  return gulpFile(stackblitzes, {src: true}).pipe(gulp.dest('demo/src/public/app/components'));
+});
+
 gulp.task('clean:demo', function() { return del('demo/dist'); });
 
 gulp.task('clean:demo-cache', function() { return del('.publish/'); });
 
 gulp.task(
-    'demo-server', ['generate-docs', 'generate-plunks'],
+    'demo-server', ['generate-docs', 'generate-plunks', 'generate-stackblitzes'],
     shell.task([`webpack-dev-server --port ${docsConfig.port} --config webpack.demo.js --inline --progress`]));
 
 gulp.task(
-    'build:demo', ['clean:demo', 'generate-docs', 'generate-plunks'],
+    'build:demo', ['clean:demo', 'generate-docs', 'generate-plunks', 'generate-stackblitzes'],
     shell.task(['webpack --config webpack.demo.js --progress --profile --bail'], {env: {MODE: 'build'}}));
 
 gulp.task(
-    'demo-server:aot', ['generate-docs', 'generate-plunks'],
+    'demo-server:aot', ['generate-docs', 'generate-plunks', 'generate-stackblitzes'],
     shell.task(
         [`webpack-dev-server --port ${docsConfig.port} --config webpack.demo.js --inline --progress`],
         {env: {MODE: 'build'}}));

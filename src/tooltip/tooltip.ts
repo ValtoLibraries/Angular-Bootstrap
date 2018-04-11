@@ -49,7 +49,7 @@ let nextId = 0;
     :host.bs-tooltip-left .arrow, :host.bs-tooltip-right .arrow {
       top: calc(50% - 0.4rem);
     }
-    
+
     :host.bs-tooltip-left-top .arrow, :host.bs-tooltip-right-top .arrow {
       top: 0.4rem;
     }
@@ -102,6 +102,12 @@ export class NgbTooltip implements OnInit, OnDestroy {
    */
   @Input() container: string;
   /**
+   * A flag indicating if a given tooltip is disabled and should not be displayed.
+   *
+   * @since 1.1.0
+   */
+  @Input() disableTooltip: boolean;
+  /**
    * Emits an event when the tooltip is shown
    */
   @Output() shown = new EventEmitter();
@@ -124,6 +130,7 @@ export class NgbTooltip implements OnInit, OnDestroy {
     this.placement = config.placement;
     this.triggers = config.triggers;
     this.container = config.container;
+    this.disableTooltip = config.disableTooltip;
     this._popupService = new PopupService<NgbTooltipWindow>(
         NgbTooltipWindow, injector, viewContainerRef, _renderer, componentFactoryResolver);
 
@@ -155,7 +162,7 @@ export class NgbTooltip implements OnInit, OnDestroy {
    * The context is an optional value to be injected into the tooltip template when it is created.
    */
   open(context?: any) {
-    if (!this._windowRef && this._ngbTooltip) {
+    if (!this._windowRef && this._ngbTooltip && !this.disableTooltip) {
       this._windowRef = this._popupService.open(this._ngbTooltip, context);
       this._windowRef.instance.id = this._ngbTooltipWindowId;
 
@@ -217,7 +224,11 @@ export class NgbTooltip implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.close();
-    this._unregisterListenersFn();
+    // This check is needed as it might happen that ngOnDestroy is called before ngOnInit
+    // under certain conditions, see: https://github.com/ng-bootstrap/ng-bootstrap/issues/2199
+    if (this._unregisterListenersFn) {
+      this._unregisterListenersFn();
+    }
     this._zoneSubscription.unsubscribe();
   }
 }
