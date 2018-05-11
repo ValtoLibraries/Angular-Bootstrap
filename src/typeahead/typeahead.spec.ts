@@ -12,6 +12,8 @@ import {NgbTypeaheadModule} from './typeahead.module';
 import {NgbTypeaheadConfig} from './typeahead-config';
 import {debounceTime, filter, map, merge} from 'rxjs/operators';
 
+import {ARIA_LIVE_DELAY} from '../util/accessibility/live';
+
 const createTestComponent = (html: string) =>
     createGenericTestComponent(html, TestComponent) as ComponentFixture<TestComponent>;
 
@@ -78,7 +80,8 @@ describe('ngb-typeahead', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       declarations: [TestComponent, TestOnPushComponent, TestAsyncComponent],
-      imports: [NgbTypeaheadModule.forRoot(), FormsModule, ReactiveFormsModule]
+      imports: [NgbTypeaheadModule.forRoot(), FormsModule, ReactiveFormsModule],
+      providers: [{provide: ARIA_LIVE_DELAY, useValue: null}]
     });
   });
 
@@ -433,6 +436,28 @@ describe('ngb-typeahead', () => {
       fixture.detectChanges();
       expectWindowResults(compiled, ['one', 'one more']);
     });
+
+    it('should reset active index when result changes', () => {
+      const fixture = createTestComponent(`<input type="text" [ngbTypeahead]="find"/>`);
+      const compiled = fixture.nativeElement;
+
+      changeInput(compiled, 'o');
+      fixture.detectChanges();
+      expectWindowResults(compiled, ['+one', 'one more']);
+
+      // move down to highlight the second item
+      let event = createKeyDownEvent(Key.ArrowDown);
+      getDebugInput(fixture.debugElement).triggerEventHandler('keydown', event);
+      fixture.detectChanges();
+      expectWindowResults(compiled, ['one', '+one more']);
+      expect(event.preventDefault).toHaveBeenCalled();
+
+      // change search criteria to reset results while the popup stays open
+      changeInput(compiled, 't');
+      fixture.detectChanges();
+      expectWindowResults(compiled, ['+two', 'three']);
+    });
+
 
     it('should properly make previous/next results active with down arrow keys when focusFirst is false', () => {
       const fixture = createTestComponent(`<input type="text" [ngbTypeahead]="find" [focusFirst]="false"/>`);

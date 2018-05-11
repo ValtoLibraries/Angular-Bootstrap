@@ -63,12 +63,10 @@ gulp.task('umd', function(cb) {
   }
 
   function rxjsExternal(context, request, cb) {
-    if (/^rxjs\/add\/observable\//.test(request)) {
-      return cb(null, {root: ['Rx', 'Observable'], commonjs: request, commonjs2: request, amd: request});
-    } else if (/^rxjs\/add\/operator\//.test(request)) {
-      return cb(null, {root: ['Rx', 'Observable', 'prototype'], commonjs: request, commonjs2: request, amd: request});
-    } else if (/^rxjs\//.test(request)) {
-      return cb(null, {root: ['Rx'], commonjs: request, commonjs2: request, amd: request});
+    if (request == 'rxjs/operators') {
+      return cb(null, {root: ['rxjs', 'operators'], commonjs: request, commonjs2: request, amd: request});
+    } else if (request == 'rxjs') {
+      return cb(null, {root: ['rxjs'], commonjs: request, commonjs2: request, amd: request});
     }
     cb();
   }
@@ -140,7 +138,7 @@ function startKarmaServer(isTddMode, isSaucelabs, done) {
   if (isSaucelabs) {
     config['reporters'] = ['dots', 'saucelabs'];
     config['browsers'] =
-        ['SL_CHROME', 'SL_FIREFOX', 'SL_IE10', 'SL_IE11', 'SL_EDGE14', 'SL_EDGE15', 'SL_SAFARI10', 'SL_SAFARI11'];
+        ['SL_CHROME', 'SL_FIREFOX', 'SL_IE10', 'SL_IE11', 'SL_EDGE16', 'SL_EDGE15', 'SL_SAFARI10', 'SL_SAFARI11'];
 
     if (process.env.TRAVIS) {
       var buildId = `TRAVIS #${process.env.TRAVIS_BUILD_NUMBER} (${process.env.TRAVIS_BUILD_ID})`;
