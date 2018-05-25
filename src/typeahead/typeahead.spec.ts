@@ -134,6 +134,33 @@ describe('ngb-typeahead', () => {
              })
              .then(() => { expectInputValue(el, 'TEXT'); });
        }));
+
+    it('should use custom input formatter with falsy values', async(() => {
+         const html = '<input [(ngModel)]="model" [ngbTypeahead]="findNothing" [inputFormatter]="uppercaseFormatter"/>';
+         const fixture = createTestComponent(html);
+         const el = fixture.nativeElement;
+         const comp = fixture.componentInstance;
+         expectInputValue(el, '');
+
+         comp.model = null;
+         fixture.detectChanges();
+         fixture.whenStable()
+             .then(() => {
+               expectInputValue(el, '');
+
+               comp.model = 0;
+               fixture.detectChanges();
+               return fixture.whenStable();
+             })
+             .then(() => {
+               expectInputValue(el, '0');
+
+               comp.model = false;
+               fixture.detectChanges();
+               return fixture.whenStable();
+             })
+             .then(() => { expectInputValue(el, 'FALSE'); });
+       }));
   });
 
   describe('window', () => {
@@ -847,6 +874,14 @@ describe('ngb-typeahead', () => {
       expect(input.getAttribute('autocapitalize')).toBe('off');
       expect(input.getAttribute('autocorrect')).toBe('off');
     });
+
+    it('should have configurable autocomplete attribute', () => {
+      const fixture =
+          createTestComponent('<input type="text" [ngbTypeahead]="findObjects" autocomplete="ignored-123456"/>');
+      const input = getNativeInput(fixture.nativeElement);
+
+      expect(input.getAttribute('autocomplete')).toBe('ignored-123456');
+    });
   });
 
   describe('accessibility', () => {
@@ -1090,9 +1125,9 @@ class TestComponent {
 
   formatter = (obj: {id: number, value: string}) => { return `${obj.id} ${obj.value}`; };
 
-  uppercaseFormatter = s => s.toUpperCase();
+  uppercaseFormatter = s => `${s}`.toUpperCase();
 
-  uppercaseObjFormatter = (obj: {value: string}) => { return obj.value.toUpperCase(); };
+  uppercaseObjFormatter = (obj: {value: string}) => { return `${obj.value}`.toUpperCase(); };
 
 
   onSelect($event) { this.selectEventValue = $event; }
