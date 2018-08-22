@@ -7,7 +7,14 @@ import {NgbCarouselModule} from './carousel/carousel.module';
 import {NgbCollapseModule} from './collapse/collapse.module';
 import {NgbDatepickerModule} from './datepicker/datepicker.module';
 import {NgbDropdownModule} from './dropdown/dropdown.module';
-import {NgbModalModule, NgbModal, NgbModalOptions, NgbModalRef, ModalDismissReasons} from './modal/modal.module';
+import {
+  NgbModalModule,
+  NgbModal,
+  NgbModalConfig,
+  NgbModalOptions,
+  NgbModalRef,
+  ModalDismissReasons
+} from './modal/modal.module';
 import {NgbPaginationModule} from './pagination/pagination.module';
 import {NgbPopoverModule} from './popover/popover.module';
 import {NgbProgressbarModule} from './progressbar/progressbar.module';
@@ -32,14 +39,18 @@ export {NgbCarouselModule, NgbCarouselConfig, NgbCarousel, NgbSlide} from './car
 export {NgbCollapseModule, NgbCollapse} from './collapse/collapse.module';
 export {
   NgbCalendar,
+  NgbPeriod,
   NgbCalendarIslamicCivil,
   NgbCalendarIslamicUmalqura,
+  NgbCalendarPersian,
   NgbDatepickerModule,
   NgbDatepickerI18n,
   NgbDatepickerConfig,
   NgbDateStruct,
+  NgbDate,
   NgbDateParserFormatter,
   NgbDateAdapter,
+  NgbDateNativeAdapter,
   NgbDatepicker,
   NgbInputDatepicker
 } from './datepicker/datepicker.module';
@@ -47,6 +58,7 @@ export {NgbDropdownModule, NgbDropdownConfig, NgbDropdown} from './dropdown/drop
 export {
   NgbModalModule,
   NgbModal,
+  NgbModalConfig,
   NgbModalOptions,
   NgbActiveModal,
   NgbModalRef,
@@ -65,7 +77,13 @@ export {
   NgbTabContent,
   NgbTabTitle
 } from './tabset/tabset.module';
-export {NgbTimepickerModule, NgbTimepickerConfig, NgbTimeStruct, NgbTimepicker} from './timepicker/timepicker.module';
+export {
+  NgbTimepickerModule,
+  NgbTimepickerConfig,
+  NgbTimeStruct,
+  NgbTimepicker,
+  NgbTimeAdapter
+} from './timepicker/timepicker.module';
 export {NgbTooltipModule, NgbTooltipConfig, NgbTooltip} from './tooltip/tooltip.module';
 export {
   NgbHighlight,
@@ -83,20 +101,13 @@ const NGB_MODULES = [
   NgbTabsetModule, NgbTimepickerModule, NgbTooltipModule, NgbTypeaheadModule
 ];
 
-@NgModule({
-  imports: [
-    NgbAlertModule.forRoot(), NgbButtonsModule.forRoot(), NgbCollapseModule.forRoot(), NgbProgressbarModule.forRoot(),
-    NgbTooltipModule.forRoot(), NgbTypeaheadModule.forRoot(), NgbAccordionModule.forRoot(), NgbCarouselModule.forRoot(),
-    NgbDatepickerModule.forRoot(), NgbDropdownModule.forRoot(), NgbModalModule.forRoot(), NgbPaginationModule.forRoot(),
-    NgbPopoverModule.forRoot(), NgbProgressbarModule.forRoot(), NgbRatingModule.forRoot(), NgbTabsetModule.forRoot(),
-    NgbTimepickerModule.forRoot(), NgbTooltipModule.forRoot()
-  ],
-  exports: NGB_MODULES
-})
-export class NgbRootModule {
-}
-
 @NgModule({imports: NGB_MODULES, exports: NGB_MODULES})
 export class NgbModule {
-  static forRoot(): ModuleWithProviders { return {ngModule: NgbRootModule}; }
+  /**
+   * Importing with '.forRoot()' is no longer necessary, you can simply import the module.
+   * Will be removed in 4.0.0.
+   *
+   * @deprecated 3.0.0
+   */
+  static forRoot(): ModuleWithProviders { return {ngModule: NgbModule}; }
 }

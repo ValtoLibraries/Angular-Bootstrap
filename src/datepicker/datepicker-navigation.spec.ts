@@ -26,7 +26,7 @@ describe('ngb-datepicker-navigation', () => {
   beforeEach(() => {
     TestBed.overrideModule(
         NgbDatepickerModule, {set: {exports: [NgbDatepickerNavigation, NgbDatepickerNavigationSelect]}});
-    TestBed.configureTestingModule({declarations: [TestComponent], imports: [NgbDatepickerModule.forRoot()]});
+    TestBed.configureTestingModule({declarations: [TestComponent], imports: [NgbDatepickerModule]});
   });
 
   it('should toggle navigation select component', () => {
@@ -110,6 +110,16 @@ describe('ngb-datepicker-navigation', () => {
 
     const links = getNavigationLinks(fixture.nativeElement);
     links.forEach((link) => { expect(link.getAttribute('type')).toBe('button'); });
+  });
+
+  it('should have correct titles and aria attributes on buttons', () => {
+    const fixture = createTestComponent(`<ngb-datepicker-navigation></ngb-datepicker-navigation>`);
+
+    const links = getNavigationLinks(fixture.nativeElement);
+    expect(links[0].getAttribute('aria-label')).toBe('Previous month');
+    expect(links[1].getAttribute('aria-label')).toBe('Next month');
+    expect(links[0].getAttribute('title')).toBe('Previous month');
+    expect(links[1].getAttribute('title')).toBe('Next month');
   });
 
 });

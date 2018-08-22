@@ -1,15 +1,19 @@
-import {Component, Input, ContentChildren} from '@angular/core';
+import {Component, ContentChild, ContentChildren, Input, NgZone} from '@angular/core';
 import {ActivatedRoute, Router} from '@angular/router';
 
 import {ExampleBoxComponent} from '../../components/shared/example-box';
 import {NgbdApiDocs, NgbdApiDocsClass, NgbdApiDocsConfig} from '../../components/shared/api-docs';
+import {NgbdOverviewDirective, NgbdOverviewSection} from '../../components/shared/overview';
 
-export const DEFAULT_TAB = 'examples';
-const VALID_TABS = [DEFAULT_TAB, 'api'];
+const VALID_TABS = ['overview', 'examples', 'api'];
 
 @Component({selector: 'ngbd-component-wrapper', templateUrl: './component-wrapper.component.html'})
 export class ComponentWrapper {
   @Input() component: string;
+
+  @Input() set sections(sections: {[name: string]: NgbdOverviewSection}) {
+    this.overviewSections = Object.keys(sections).map(name => sections[name]);
+  };
 
   activeTab: string;
 
@@ -18,10 +22,11 @@ export class ComponentWrapper {
     ['C', 'Component typescript file', 'btn-info'],
   ];
 
+  overviewSections: NgbdOverviewSection[] = [];
+
   sidebarCollapsed = true;
 
-  // TODO: change to @ContentChild(OVerviewBoxComponent) when implemented
-  hasOverview = false;
+  @ContentChild(NgbdOverviewDirective) overview;
 
   @ContentChildren(ExampleBoxComponent) demos;
 
@@ -31,23 +36,32 @@ export class ComponentWrapper {
 
   @ContentChildren(NgbdApiDocsConfig) apiDocsConfig;
 
-  isMobile: boolean;
+  isSmallScreenOrLess: boolean;
+  isLargeScreenOrLess: boolean;
 
-  constructor(private route: ActivatedRoute, private router: Router) {
+  constructor(private route: ActivatedRoute, private router: Router, ngZone: NgZone) {
     this.route.params.subscribe(params => {
       const tab = params['tab'];
       if (VALID_TABS.indexOf(tab) !== -1) {
         this.activeTab = tab;
       } else {
-        this.router.navigate(['..', DEFAULT_TAB], {relativeTo: this.route});
+        this.router.navigate(['..'], {relativeTo: this.route});
       }
       document.body.scrollIntoView();
     });
 
     // information extracted from https://getbootstrap.com/docs/4.1/layout/overview/
     // TODO: we should implements our own mediamatcher, according to bootstrap layout.
-    const mobileQL = window.matchMedia('(max-width: 767.98px)');
-    this.isMobile = mobileQL.matches;
-    mobileQL.addListener((event) => { this.isMobile = event.matches; });
+    const smallScreenQL = matchMedia('(max-width: 767.98px)');
+    smallScreenQL.addListener((event) => ngZone.run(() => this.isSmallScreenOrLess = event.matches));
+    this.isSmallScreenOrLess = smallScreenQL.matches;
+
+    const largeScreenQL = matchMedia('(max-width: 1199.98px)');
+    this.isLargeScreenOrLess = largeScreenQL.matches;
+    largeScreenQL.addListener((event) => ngZone.run(() => this.isLargeScreenOrLess = event.matches));
+  }
+
+  tabChange(event) {
+    this.router.navigate(['..', event.nextId], {relativeTo: this.route});
   }
 }

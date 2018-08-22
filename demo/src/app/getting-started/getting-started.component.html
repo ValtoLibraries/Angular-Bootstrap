@@ -4,16 +4,40 @@
   </h3>
   <p>
     This repository contains a set of native Angular directives based on Bootstrap's markup and CSS.
-    As a result no dependency on jQuery or Bootstrap's JavaScript is required. The only required dependencies are:
+    As a result no dependency on jQuery or Bootstrap's JavaScript is required.
   </p>
-  <ul>
-    <li>
-      <a href="https://angular.io" target="_blank">Angular</a> (<em>requires</em> Angular version 5 or higher, tested with 5.0.2)
-    </li>
-    <li>
-      <a href="https://www.getbootstrap.com" target="_blank">Bootstrap CSS</a> (tested with 4.0.0)
-    </li>
-  </ul>
+
+  <p>
+    Here is a list of minimal required versions of <a href="https://angular.io" target="_blank">Angular</a>
+    and <a href="https://www.getbootstrap.com" target="_blank">Bootstrap</a> CSS for ng-bootstrap:
+  </p>
+
+  <table class="table" style="width: auto">
+    <thead>
+      <tr>
+        <th scope="col">ng-bootstrap</th>
+        <th scope="col">Angular</th>
+        <th scope="col">Bootstrap CSS</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th scope="row">1.x.x</th>
+        <td>5.0.2</td>
+        <td>4.0.0</td>
+      </tr>
+      <tr>
+        <th scope="row">2.x.x</th>
+        <td>6.0.0</td>
+        <td>4.0.0</td>
+      </tr>
+      <tr>
+        <th scope="row">3.x.x</th>
+        <td>6.1.0</td>
+        <td>4.0.0</td>
+      </tr>
+    </tbody>
+  </table>
 
   <ngb-alert type="warning" [dismissible]="false">
     <p>Should I add <b>bootstrap.js</b> or <b>bootstrap.min.js</b> to my project?</p>
@@ -39,17 +63,10 @@
 
   <p>Once installed you need to import our main module.</p>
 
-  <ngbd-code [code]="codeImport" lang="typescript"></ngbd-code>
-
-  <p>
-    The only remaining part is to list the imported module in your root module and any additional application modules that make use
-    of the components in this library. The exact method will be slightly different for the root (top-level) module for which you
-    should end up with the code similar to (notice <code>NgbModule.forRoot()</code>):
-  </p>
-
   <ngbd-code [code]="codeRoot" lang="typescript"></ngbd-code>
 
-  <p>Other modules in your application can simply import <code>NgbModule</code>:</p>
+  <p>Alternatively you could only import modules with components you need, ex. pagination and alert.
+    The resulting bundle will be smaller in this case.</p>
 
   <ngbd-code [code]="codeOther" lang="typescript"></ngbd-code>
   <br>

@@ -24,7 +24,7 @@ import {NgbDatepickerKeyMapService} from './datepicker-keymap-service';
 import {DatepickerViewModel, NavigationEvent} from './datepicker-view-model';
 import {DayTemplateContext} from './datepicker-day-template-context';
 import {NgbDatepickerConfig} from './datepicker-config';
-import {NgbDateAdapter} from './ngb-date-adapter';
+import {NgbDateAdapter} from './adapters/ngb-date-adapter';
 import {NgbDateStruct} from './ngb-date-struct';
 import {NgbDatepickerI18n} from './datepicker-i18n';
 import {isChangedDate} from './datepicker-tools';
@@ -130,14 +130,13 @@ export interface NgbDatepickerNavigateEvent {
         <div class="ngb-dp-month">
           <div *ngIf="navigation === 'none' || (displayMonths > 1 && navigation === 'select')"
                 class="ngb-dp-month-name bg-light">
-            {{ i18n.getMonthFullName(month.number) }} {{ month.year }}
+            {{ i18n.getMonthFullName(month.number) }} {{ i18n.getYearNumerals(month.year) }}
           </div>
           <ngb-datepicker-month-view
             [month]="month"
             [dayTemplate]="dayTemplate || dt"
             [showWeekdays]="showWeekdays"
             [showWeekNumbers]="showWeekNumbers"
-            [outsideDays]="(displayMonths === 1 ? outsideDays : 'hidden')"
             (select)="onDateSelect($event)">
           </ngb-datepicker-month-view>
         </div>
@@ -171,7 +170,7 @@ export class NgbDatepicker implements OnDestroy,
    * Callback to mark a given date as disabled.
    * 'Current' contains the month that will be displayed in the view
    */
-  @Input() markDisabled: (date: NgbDateStruct, current: {year: number, month: number}) => boolean;
+  @Input() markDisabled: (date: NgbDate, current: {year: number, month: number}) => boolean;
 
   /**
    * Max date for the navigation. If not provided, 'year' select box will display 10 years after current month
@@ -221,9 +220,9 @@ export class NgbDatepicker implements OnDestroy,
 
   /**
    * An event fired when user selects a date using keyboard or mouse.
-   * The payload of the event is currently selected NgbDateStruct.
+   * The payload of the event is currently selected NgbDate.
    */
-  @Output() select = new EventEmitter<NgbDateStruct>();
+  @Output() select = new EventEmitter<NgbDate>();
 
   onChange = (_: any) => {};
   onTouched = () => {};
@@ -231,13 +230,13 @@ export class NgbDatepicker implements OnDestroy,
   constructor(
       private _keyMapService: NgbDatepickerKeyMapService, public _service: NgbDatepickerService,
       private _calendar: NgbCalendar, public i18n: NgbDatepickerI18n, config: NgbDatepickerConfig,
-      private _cd: ChangeDetectorRef, private _elementRef: ElementRef, private _ngbDateAdapter: NgbDateAdapter<any>,
-      private _ngZone: NgZone) {
+      private _cd: ChangeDetectorRef, private _elementRef: ElementRef<HTMLElement>,
+      private _ngbDateAdapter: NgbDateAdapter<any>, private _ngZone: NgZone) {
     ['dayTemplate', 'displayMonths', 'firstDayOfWeek', 'markDisabled', 'minDate', 'maxDate', 'navigation',
      'outsideDays', 'showWeekdays', 'showWeekNumbers', 'startDate']
         .forEach(input => this[input] = config[input]);
 
-    this._selectSubscription = _service.select$.subscribe(date => { this.select.emit(date.toStruct()); });
+    this._selectSubscription = _service.select$.subscribe(date => { this.select.emit(date); });
 
     this._subscription = _service.model$.subscribe(model => {
       const newDate = model.firstDate;
@@ -276,7 +275,8 @@ export class NgbDatepicker implements OnDestroy,
    */
   focus() {
     this._ngZone.onStable.asObservable().pipe(take(1)).subscribe(() => {
-      const elementToFocus = this._elementRef.nativeElement.querySelector('div.ngb-dp-day[tabindex="0"]');
+      const elementToFocus =
+          this._elementRef.nativeElement.querySelector<HTMLDivElement>('div.ngb-dp-day[tabindex="0"]');
       if (elementToFocus) {
         elementToFocus.focus();
       }
@@ -289,7 +289,9 @@ export class NgbDatepicker implements OnDestroy,
    * If nothing or invalid date provided calendar will open current month.
    * Use 'startDate' input as an alternative
    */
-  navigateTo(date?: {year: number, month: number}) { this._service.open(NgbDate.from(date)); }
+  navigateTo(date?: {year: number, month: number}) {
+    this._service.open(NgbDate.from(date ? {...date, day: 1} : null));
+  }
 
   ngOnDestroy() {
     this._subscription.unsubscribe();
@@ -298,14 +300,14 @@ export class NgbDatepicker implements OnDestroy,
 
   ngOnInit() {
     if (this.model === undefined) {
-      ['displayMonths', 'markDisabled', 'firstDayOfWeek', 'navigation', 'minDate', 'maxDate'].forEach(
+      ['displayMonths', 'markDisabled', 'firstDayOfWeek', 'navigation', 'minDate', 'maxDate', 'outsideDays'].forEach(
           input => this._service[input] = this[input]);
       this.navigateTo(this.startDate);
     }
   }
 
   ngOnChanges(changes: SimpleChanges) {
-    ['displayMonths', 'markDisabled', 'firstDayOfWeek', 'navigation', 'minDate', 'maxDate']
+    ['displayMonths', 'markDisabled', 'firstDayOfWeek', 'navigation', 'minDate', 'maxDate', 'outsideDays']
         .filter(input => input in changes)
         .forEach(input => this._service[input] = this[input]);
 

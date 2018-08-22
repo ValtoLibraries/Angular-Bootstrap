@@ -56,8 +56,7 @@ function getButton(nativeEl: HTMLElement) {
 }
 
 describe('ngb-tabset', () => {
-  beforeEach(
-      () => { TestBed.configureTestingModule({declarations: [TestComponent], imports: [NgbTabsetModule.forRoot()]}); });
+  beforeEach(() => { TestBed.configureTestingModule({declarations: [TestComponent], imports: [NgbTabsetModule]}); });
 
   it('should initialize inputs with default values', () => {
     const defaultConfig = new NgbTabsetConfig();
@@ -328,6 +327,18 @@ describe('ngb-tabset', () => {
     expect(fixture.nativeElement.querySelector('ul')).not.toHaveCssClass('nav-tabs');
   });
 
+  it('should allow arbitrary nav type', () => {
+    const fixture = createTestComponent(`
+         <ngb-tabset type="bordered">
+           <ngb-tab title="bar"><ng-template ngbTabContent>Bar</ng-template></ngb-tab>
+         </ngb-tabset>
+       `);
+
+    expect(fixture.nativeElement.querySelector('ul')).toHaveCssClass('nav-bordered');
+    expect(fixture.nativeElement.querySelector('ul')).not.toHaveCssClass('nav-pills');
+    expect(fixture.nativeElement.querySelector('ul')).not.toHaveCssClass('nav-tabs');
+  });
+
   it('should have the "justify-content-start" class by default', () => {
     const fixture = createTestComponent(`
          <ngb-tabset>
@@ -541,7 +552,7 @@ describe('ngb-tabset', () => {
   describe('Custom config', () => {
     let config: NgbTabsetConfig;
 
-    beforeEach(() => { TestBed.configureTestingModule({imports: [NgbTabsetModule.forRoot()]}); });
+    beforeEach(() => { TestBed.configureTestingModule({imports: [NgbTabsetModule]}); });
 
     beforeEach(inject([NgbTabsetConfig], (c: NgbTabsetConfig) => {
       config = c;
@@ -563,7 +574,7 @@ describe('ngb-tabset', () => {
 
     beforeEach(() => {
       TestBed.configureTestingModule(
-          {imports: [NgbTabsetModule.forRoot()], providers: [{provide: NgbTabsetConfig, useValue: config}]});
+          {imports: [NgbTabsetModule], providers: [{provide: NgbTabsetConfig, useValue: config}]});
     });
 
     it('should initialize inputs with provided config as provider', () => {

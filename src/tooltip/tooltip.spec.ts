@@ -1,12 +1,18 @@
-import {TestBed, ComponentFixture, inject} from '@angular/core/testing';
-import {createGenericTestComponent} from '../test/common';
+import {TestBed, ComponentFixture, inject, fakeAsync, tick} from '@angular/core/testing';
+import {createGenericTestComponent, createKeyEvent} from '../test/common';
 
 import {By} from '@angular/platform-browser';
 import {Component, ViewChild, ChangeDetectionStrategy, TemplateRef, ViewContainerRef} from '@angular/core';
 
+import {Key} from '../util/key';
+
 import {NgbTooltipModule} from './tooltip.module';
 import {NgbTooltipWindow, NgbTooltip} from './tooltip';
 import {NgbTooltipConfig} from './tooltip-config';
+
+function dispatchEscapeKeyUpEvent() {
+  document.dispatchEvent(createKeyEvent(Key.Escape));
+}
 
 const createTestComponent =
     (html: string) => <ComponentFixture<TestComponent>>createGenericTestComponent(html, TestComponent);
@@ -15,7 +21,7 @@ const createOnPushTestComponent =
     (html: string) => <ComponentFixture<TestOnPushComponent>>createGenericTestComponent(html, TestOnPushComponent);
 
 describe('ngb-tooltip-window', () => {
-  beforeEach(() => { TestBed.configureTestingModule({imports: [NgbTooltipModule.forRoot()]}); });
+  beforeEach(() => { TestBed.configureTestingModule({imports: [NgbTooltipModule]}); });
 
   it('should render tooltip on top by default', () => {
     const fixture = TestBed.createComponent(NgbTooltipWindow);
@@ -37,8 +43,7 @@ describe('ngb-tooltip-window', () => {
 describe('ngb-tooltip', () => {
 
   beforeEach(() => {
-    TestBed.configureTestingModule(
-        {declarations: [TestComponent, TestOnPushComponent], imports: [NgbTooltipModule.forRoot()]});
+    TestBed.configureTestingModule({declarations: [TestComponent, TestOnPushComponent], imports: [NgbTooltipModule]});
   });
 
   function getWindow(element) { return element.querySelector('ngb-tooltip-window'); }
@@ -408,7 +413,7 @@ describe('ngb-tooltip', () => {
   });
 
   describe('visibility', () => {
-    it('should emit events when showing and hiding popover', () => {
+    it('should emit events when showing and hiding tooltip', () => {
       const fixture = createTestComponent(
           `<div ngbTooltip="Great tip!" triggers="click" (shown)="shown()" (hidden)="hidden()"></div>`);
       const directive = fixture.debugElement.query(By.directive(NgbTooltip));
@@ -476,11 +481,217 @@ describe('ngb-tooltip', () => {
     });
   });
 
+  describe('autoClose', () => {
+    beforeEach(() => { TestBed.configureTestingModule({declarations: [TestComponent], imports: [NgbTooltipModule]}); });
+
+    it('should not close when autoClose is false', fakeAsync(() => {
+         const fixture = createTestComponent(`
+        <ng-template #tooltipContent><div id="tooltip">Tooltip content</div></ng-template>
+        <div
+          id="target"
+          #tooltip="ngbTooltip"
+          [ngbTooltip]="tooltipContent"
+          triggers="manual"
+          [autoClose]="false"
+          (click)="tooltip.open()"
+        >
+          Target with tooltip
+        </div>
+        <div id="outside">Element outside</div>
+      `);
+         const select = selector => fixture.nativeElement.querySelector(selector);
+         const expectToBeOpen = () => expect(getWindow(fixture.nativeElement)).not.toBeNull();
+
+         const outside = select('#outside');
+         const target = select('#target');
+         let tooltip;
+         const open = () => {
+           target.click();
+           tick(16);
+           fixture.detectChanges();
+           expectToBeOpen();
+           tooltip = select('#tooltip');
+         };
+
+         open();
+
+         dispatchEscapeKeyUpEvent();
+         fixture.detectChanges();
+         expectToBeOpen();
+
+         outside.click();
+         fixture.detectChanges();
+         expectToBeOpen();
+
+         tooltip.click();
+         fixture.detectChanges();
+         expectToBeOpen();
+
+         target.click();
+         fixture.detectChanges();
+         expectToBeOpen();
+       }));
+
+    it('should close on clicks inside the tooltip and on Escape when autoClose is "inside"', fakeAsync(() => {
+         const fixture = createTestComponent(`
+        <ng-template #tooltipContent><div id="tooltip">Tooltip content</div></ng-template>
+        <div
+          id="target"
+          #tooltip="ngbTooltip"
+          [ngbTooltip]="tooltipContent"
+          triggers="manual"
+          autoClose="inside"
+          (click)="tooltip.open()"
+        >
+          Target with tooltip
+        </div>
+        <div id="outside">Element outside</div>
+      `);
+         const select = selector => fixture.nativeElement.querySelector(selector);
+         const expectToBeOpen = () => expect(getWindow(fixture.nativeElement)).not.toBeNull();
+         const expectToBeClosed = () => expect(getWindow(fixture.nativeElement)).toBeNull();
+
+         const outside = select('#outside');
+         const target = select('#target');
+         let tooltip;
+         const open = () => {
+           target.click();
+           tick(16);
+           fixture.detectChanges();
+           expectToBeOpen();
+           tooltip = select('#tooltip');
+         };
+
+         open();
+
+         dispatchEscapeKeyUpEvent();
+         fixture.detectChanges();
+         expectToBeClosed();
+         open();
+
+         tooltip.click();
+         fixture.detectChanges();
+         expectToBeClosed();
+         open();
+
+         outside.click();
+         fixture.detectChanges();
+         expectToBeOpen();
+
+         target.click();
+         fixture.detectChanges();
+         expectToBeOpen();
+       }));
+
+    it('should close on clicks outside the tooltip and on Escape when autoClose is "outside"', fakeAsync(() => {
+         const fixture = createTestComponent(`
+        <ng-template #tooltipContent><div id="tooltip">Tooltip content</div></ng-template>
+        <div
+          id="target"
+          #tooltip="ngbTooltip"
+          [ngbTooltip]="tooltipContent"
+          triggers="manual"
+          autoClose="outside"
+          (click)="tooltip.open()"
+        >
+          Target with tooltip
+        </div>
+        <div id="outside">Element outside</div>
+      `);
+         const select = selector => fixture.nativeElement.querySelector(selector);
+         const expectToBeOpen = () => expect(getWindow(fixture.nativeElement)).not.toBeNull();
+         const expectToBeClosed = () => expect(getWindow(fixture.nativeElement)).toBeNull();
+
+         const outside = select('#outside');
+         const target = select('#target');
+         let tooltip;
+         const open = () => {
+           target.click();
+           fixture.detectChanges();
+           tick(16);
+           expectToBeOpen();
+           tooltip = select('#tooltip');
+         };
+
+         open();
+
+         dispatchEscapeKeyUpEvent();
+         fixture.detectChanges();
+         expectToBeClosed();
+         open();
+
+         outside.click();
+         fixture.detectChanges();
+         expectToBeClosed();
+         open();
+
+         tooltip.click();
+         fixture.detectChanges();
+         expectToBeOpen();
+
+         target.click();
+         fixture.detectChanges();
+         expectToBeClosed();
+       }));
+
+    it('should close on clicks anywhere and on Escape when autoClose is true', fakeAsync(() => {
+         const fixture = createTestComponent(`
+        <ng-template #tooltipContent><div id="tooltip">Tooltip content</div></ng-template>
+        <div
+          id="target"
+          #tooltip="ngbTooltip"
+          [ngbTooltip]="tooltipContent"
+          triggers="manual"
+          [autoClose]="true"
+          (click)="tooltip.open()"
+        >
+          Target with tooltip
+        </div>
+        <div id="outside">Element outside</div>
+      `);
+         const select = selector => fixture.nativeElement.querySelector(selector);
+         const expectToBeOpen = () => expect(getWindow(fixture.nativeElement)).not.toBeNull();
+         const expectToBeClosed = () => expect(getWindow(fixture.nativeElement)).toBeNull();
+
+         const outside = select('#outside');
+         const target = select('#target');
+         let tooltip;
+         const open = () => {
+           target.click();
+           tick(16);
+           fixture.detectChanges();
+           expectToBeOpen();
+           tooltip = select('#tooltip');
+         };
+
+         open();
+
+         dispatchEscapeKeyUpEvent();
+         fixture.detectChanges();
+         expectToBeClosed();
+         open();
+
+         outside.click();
+         fixture.detectChanges();
+         expectToBeClosed();
+         open();
+
+         tooltip.click();
+         fixture.detectChanges();
+         expectToBeClosed();
+         open();
+
+         target.click();
+         fixture.detectChanges();
+         expectToBeClosed();
+       }));
+  });
+
   describe('Custom config', () => {
     let config: NgbTooltipConfig;
 
     beforeEach(() => {
-      TestBed.configureTestingModule({imports: [NgbTooltipModule.forRoot()]});
+      TestBed.configureTestingModule({imports: [NgbTooltipModule]});
       TestBed.overrideComponent(TestComponent, {set: {template: `<div ngbTooltip="Great tip!"></div>`}});
     });
 
@@ -510,7 +721,7 @@ describe('ngb-tooltip', () => {
 
     beforeEach(() => {
       TestBed.configureTestingModule(
-          {imports: [NgbTooltipModule.forRoot()], providers: [{provide: NgbTooltipConfig, useValue: config}]});
+          {imports: [NgbTooltipModule], providers: [{provide: NgbTooltipConfig, useValue: config}]});
     });
 
     it('should initialize inputs with provided config as provider', () => {

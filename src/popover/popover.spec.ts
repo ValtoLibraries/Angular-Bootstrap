@@ -1,12 +1,18 @@
-import {TestBed, ComponentFixture, inject} from '@angular/core/testing';
-import {createGenericTestComponent} from '../test/common';
+import {TestBed, ComponentFixture, inject, fakeAsync, tick} from '@angular/core/testing';
+import {createGenericTestComponent, createKeyEvent} from '../test/common';
 
 import {By} from '@angular/platform-browser';
-import {Component, ViewChild, ChangeDetectionStrategy, Injectable, OnDestroy} from '@angular/core';
+import {Component, ViewChild, ChangeDetectionStrategy, Injectable, OnDestroy, TemplateRef} from '@angular/core';
+
+import {Key} from '../util/key';
 
 import {NgbPopoverModule} from './popover.module';
 import {NgbPopoverWindow, NgbPopover} from './popover';
 import {NgbPopoverConfig} from './popover-config';
+
+function dispatchEscapeKeyUpEvent() {
+  document.dispatchEvent(createKeyEvent(Key.Escape));
+}
 
 @Injectable()
 class SpyService {
@@ -20,9 +26,7 @@ const createOnPushTestComponent =
     (html: string) => <ComponentFixture<TestOnPushComponent>>createGenericTestComponent(html, TestOnPushComponent);
 
 describe('ngb-popover-window', () => {
-  beforeEach(() => {
-    TestBed.configureTestingModule({declarations: [TestComponent], imports: [NgbPopoverModule.forRoot()]});
-  });
+  beforeEach(() => { TestBed.configureTestingModule({declarations: [TestComponent], imports: [NgbPopoverModule]}); });
 
   it('should render popover on top by default', () => {
     const fixture = TestBed.createComponent(NgbPopoverWindow);
@@ -41,6 +45,18 @@ describe('ngb-popover-window', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement).toHaveCssClass('bs-popover-left');
   });
+
+  it('should optionally have a custom class', () => {
+    const fixture = TestBed.createComponent(NgbPopoverWindow);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement).not.toHaveCssClass('my-custom-class');
+
+    fixture.componentInstance.popoverClass = 'my-custom-class';
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement).toHaveCssClass('my-custom-class');
+  });
 });
 
 describe('ngb-popover', () => {
@@ -48,7 +64,7 @@ describe('ngb-popover', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       declarations: [TestComponent, TestOnPushComponent, DestroyableCmpt],
-      imports: [NgbPopoverModule.forRoot()],
+      imports: [NgbPopoverModule],
       providers: [SpyService]
     });
   });
@@ -127,6 +143,66 @@ describe('ngb-popover', () => {
       fixture.detectChanges();
       expect(getWindow(fixture.nativeElement)).toBeNull();
       expect(directive.nativeElement.getAttribute('aria-describedby')).toBeNull();
+    });
+
+    it('should open and close a popover - default settings and custom class', () => {
+      const fixture = createTestComponent(`
+        <div ngbPopover="Great tip!" popoverTitle="Title" popoverClass="my-custom-class"></div>`);
+      const directive = fixture.debugElement.query(By.directive(NgbPopover));
+
+      directive.triggerEventHandler('click', {});
+      fixture.detectChanges();
+      const windowEl = getWindow(fixture.nativeElement);
+
+      expect(windowEl).toHaveCssClass('popover');
+      expect(windowEl).toHaveCssClass('bs-popover-top');
+      expect(windowEl).toHaveCssClass('my-custom-class');
+      expect(windowEl.textContent.trim()).toBe('TitleGreat tip!');
+      expect(windowEl.getAttribute('role')).toBe('tooltip');
+      expect(windowEl.getAttribute('id')).toBe('ngb-popover-3');
+      expect(windowEl.parentNode).toBe(fixture.nativeElement);
+      expect(directive.nativeElement.getAttribute('aria-describedby')).toBe('ngb-popover-3');
+
+      directive.triggerEventHandler('click', {});
+      fixture.detectChanges();
+      expect(getWindow(fixture.nativeElement)).toBeNull();
+      expect(directive.nativeElement.getAttribute('aria-describedby')).toBeNull();
+    });
+
+    it('should accept a template for the title and properly destroy it when closing', () => {
+      const fixture = createTestComponent(`
+          <ng-template #t>Hello, {{name}}! <destroyable-cmpt></destroyable-cmpt></ng-template>
+          <div ngbPopover="Body" [popoverTitle]="t"></div>`);
+      const directive = fixture.debugElement.query(By.directive(NgbPopover));
+      const spyService = fixture.debugElement.injector.get(SpyService);
+
+      directive.triggerEventHandler('click', {});
+      fixture.detectChanges();
+      const windowEl = getWindow(fixture.nativeElement);
+      expect(windowEl.textContent.trim()).toBe('Hello, World! Some contentBody');
+      expect(spyService.called).toBeFalsy();
+
+      directive.triggerEventHandler('click', {});
+      fixture.detectChanges();
+      expect(getWindow(fixture.nativeElement)).toBeNull();
+      expect(spyService.called).toBeTruthy();
+    });
+
+    it('should pass the context to the template for the title', () => {
+      const fixture = createTestComponent(`
+          <ng-template #t let-greeting="greeting">{{greeting}}, {{name}}!</ng-template>
+          <div ngbPopover="!!" [popoverTitle]="t"></div>`);
+      const directive = fixture.debugElement.query(By.directive(NgbPopover));
+
+      fixture.componentInstance.name = 'tout le monde';
+      fixture.componentInstance.popover.open({greeting: 'Bonjour'});
+      fixture.detectChanges();
+      const windowEl = getWindow(fixture.nativeElement);
+      expect(windowEl.textContent.trim()).toBe('Bonjour, tout le monde!!!');
+
+      directive.triggerEventHandler('click', {});
+      fixture.detectChanges();
+      expect(getWindow(fixture.nativeElement)).toBeNull();
     });
 
     it('should properly destroy TemplateRef content', () => {
@@ -427,9 +503,7 @@ describe('ngb-popover', () => {
   });
 
   describe('triggers', () => {
-    beforeEach(() => {
-      TestBed.configureTestingModule({declarations: [TestComponent], imports: [NgbPopoverModule.forRoot()]});
-    });
+    beforeEach(() => { TestBed.configureTestingModule({declarations: [TestComponent], imports: [NgbPopoverModule]}); });
 
     it('should support toggle triggers', () => {
       const fixture = createTestComponent(`<div ngbPopover="Great tip!" triggers="click"></div>`);
@@ -536,11 +610,217 @@ describe('ngb-popover', () => {
     });
   });
 
+  describe('autoClose', () => {
+    beforeEach(() => { TestBed.configureTestingModule({declarations: [TestComponent], imports: [NgbPopoverModule]}); });
+
+    it('should not close when autoClose is false', fakeAsync(() => {
+         const fixture = createTestComponent(`
+        <ng-template #popoverContent><div id="popover">Popover content</div></ng-template>
+        <div
+          id="target"
+          #popover="ngbPopover"
+          [ngbPopover]="popoverContent"
+          triggers="manual"
+          [autoClose]="false"
+          (click)="popover.open()"
+        >
+          Target with popover
+        </div>
+        <div id="outside">Element outside</div>
+      `);
+         const select = selector => fixture.nativeElement.querySelector(selector);
+         const expectToBeOpen = () => expect(getWindow(fixture.nativeElement)).not.toBeNull();
+
+         const outside = select('#outside');
+         const target = select('#target');
+         let popover;
+         const open = () => {
+           target.click();
+           tick(16);
+           fixture.detectChanges();
+           expectToBeOpen();
+           popover = select('#popover');
+         };
+
+         open();
+
+         dispatchEscapeKeyUpEvent();
+         fixture.detectChanges();
+         expectToBeOpen();
+
+         outside.click();
+         fixture.detectChanges();
+         expectToBeOpen();
+
+         popover.click();
+         fixture.detectChanges();
+         expectToBeOpen();
+
+         target.click();
+         fixture.detectChanges();
+         expectToBeOpen();
+       }));
+
+    it('should close on clicks inside the popover and on Escape when autoClose is "inside"', fakeAsync(() => {
+         const fixture = createTestComponent(`
+        <ng-template #popoverContent><div id="popover">Popover content</div></ng-template>
+        <div
+          id="target"
+          #popover="ngbPopover"
+          [ngbPopover]="popoverContent"
+          triggers="manual"
+          autoClose="inside"
+          (click)="popover.open()"
+        >
+          Target with popover
+        </div>
+        <div id="outside">Element outside</div>
+      `);
+         const select = selector => fixture.nativeElement.querySelector(selector);
+         const expectToBeOpen = () => expect(getWindow(fixture.nativeElement)).not.toBeNull();
+         const expectToBeClosed = () => expect(getWindow(fixture.nativeElement)).toBeNull();
+
+         const outside = select('#outside');
+         const target = select('#target');
+         let popover;
+         const open = () => {
+           target.click();
+           tick(16);
+           fixture.detectChanges();
+           expectToBeOpen();
+           popover = select('#popover');
+         };
+
+         open();
+
+         dispatchEscapeKeyUpEvent();
+         fixture.detectChanges();
+         expectToBeClosed();
+         open();
+
+         popover.click();
+         fixture.detectChanges();
+         expectToBeClosed();
+         open();
+
+         outside.click();
+         fixture.detectChanges();
+         expectToBeOpen();
+
+         target.click();
+         fixture.detectChanges();
+         expectToBeOpen();
+       }));
+
+    it('should close on clicks outside the popover and on Escape when autoClose is "outside"', fakeAsync(() => {
+         const fixture = createTestComponent(`
+        <ng-template #popoverContent><div id="popover">Popover content</div></ng-template>
+        <div
+          id="target"
+          #popover="ngbPopover"
+          [ngbPopover]="popoverContent"
+          triggers="manual"
+          autoClose="outside"
+          (click)="popover.open()"
+        >
+          Target with popover
+        </div>
+        <div id="outside">Element outside</div>
+      `);
+         const select = selector => fixture.nativeElement.querySelector(selector);
+         const expectToBeOpen = () => expect(getWindow(fixture.nativeElement)).not.toBeNull();
+         const expectToBeClosed = () => expect(getWindow(fixture.nativeElement)).toBeNull();
+
+         const outside = select('#outside');
+         const target = select('#target');
+         let popover;
+         const open = () => {
+           target.click();
+           fixture.detectChanges();
+           tick(16);
+           expectToBeOpen();
+           popover = select('#popover');
+         };
+
+         open();
+
+         dispatchEscapeKeyUpEvent();
+         fixture.detectChanges();
+         expectToBeClosed();
+         open();
+
+         outside.click();
+         fixture.detectChanges();
+         expectToBeClosed();
+         open();
+
+         popover.click();
+         fixture.detectChanges();
+         expectToBeOpen();
+
+         target.click();
+         fixture.detectChanges();
+         expectToBeClosed();
+       }));
+
+    it('should close on clicks anywhere and on Escape when autoClose is true', fakeAsync(() => {
+         const fixture = createTestComponent(`
+        <ng-template #popoverContent><div id="popover">Popover content</div></ng-template>
+        <div
+          id="target"
+          #popover="ngbPopover"
+          [ngbPopover]="popoverContent"
+          triggers="manual"
+          [autoClose]="true"
+          (click)="popover.open()"
+        >
+          Target with popover
+        </div>
+        <div id="outside">Element outside</div>
+      `);
+         const select = selector => fixture.nativeElement.querySelector(selector);
+         const expectToBeOpen = () => expect(getWindow(fixture.nativeElement)).not.toBeNull();
+         const expectToBeClosed = () => expect(getWindow(fixture.nativeElement)).toBeNull();
+
+         const outside = select('#outside');
+         const target = select('#target');
+         let popover;
+         const open = () => {
+           target.click();
+           tick(16);
+           fixture.detectChanges();
+           expectToBeOpen();
+           popover = select('#popover');
+         };
+
+         open();
+
+         dispatchEscapeKeyUpEvent();
+         fixture.detectChanges();
+         expectToBeClosed();
+         open();
+
+         outside.click();
+         fixture.detectChanges();
+         expectToBeClosed();
+         open();
+
+         popover.click();
+         fixture.detectChanges();
+         expectToBeClosed();
+         open();
+
+         target.click();
+         fixture.detectChanges();
+         expectToBeClosed();
+       }));
+  });
+
   describe('Custom config', () => {
     let config: NgbPopoverConfig;
 
     beforeEach(() => {
-      TestBed.configureTestingModule({imports: [NgbPopoverModule.forRoot()]});
+      TestBed.configureTestingModule({imports: [NgbPopoverModule]});
       TestBed.overrideComponent(TestComponent, {set: {template: `<div ngbPopover="Great tip!"></div>`}});
     });
 
@@ -549,6 +829,7 @@ describe('ngb-popover', () => {
       config.placement = 'bottom';
       config.triggers = 'hover';
       config.container = 'body';
+      config.popoverClass = 'my-custom-class';
     }));
 
     it('should initialize inputs with provided config', () => {
@@ -560,6 +841,7 @@ describe('ngb-popover', () => {
       expect(popover.placement).toBe(config.placement);
       expect(popover.triggers).toBe(config.triggers);
       expect(popover.container).toBe(config.container);
+      expect(popover.popoverClass).toBe(config.popoverClass);
     });
   });
 
@@ -567,10 +849,11 @@ describe('ngb-popover', () => {
     let config = new NgbPopoverConfig();
     config.placement = 'bottom';
     config.triggers = 'hover';
+    config.popoverClass = 'my-custom-class';
 
     beforeEach(() => {
       TestBed.configureTestingModule(
-          {imports: [NgbPopoverModule.forRoot()], providers: [{provide: NgbPopoverConfig, useValue: config}]});
+          {imports: [NgbPopoverModule], providers: [{provide: NgbPopoverConfig, useValue: config}]});
     });
 
     it('should initialize inputs with provided config as provider', () => {
@@ -579,6 +862,7 @@ describe('ngb-popover', () => {
 
       expect(popover.placement).toBe(config.placement);
       expect(popover.triggers).toBe(config.triggers);
+      expect(popover.popoverClass).toBe(config.popoverClass);
     });
   });
 });

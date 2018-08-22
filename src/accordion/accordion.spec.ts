@@ -4,9 +4,7 @@ import {createGenericTestComponent} from '../test/common';
 
 import {Component} from '@angular/core';
 
-import {NgbAccordionModule} from './accordion.module';
-import {NgbAccordionConfig} from './accordion-config';
-import {NgbAccordion} from './accordion';
+import {NgbAccordionModule, NgbPanelChangeEvent, NgbAccordionConfig, NgbAccordion} from './accordion.module';
 
 const createTestComponent = (html: string) =>
     createGenericTestComponent(html, TestComponent) as ComponentFixture<TestComponent>;
@@ -16,11 +14,11 @@ function getPanels(element: HTMLElement): HTMLDivElement[] {
 }
 
 function getPanelsContent(element: HTMLElement): HTMLDivElement[] {
-  return <HTMLDivElement[]>Array.from(element.querySelectorAll('.card > .card-body'));
+  return <HTMLDivElement[]>Array.from(element.querySelectorAll('.card > .collapse'));
 }
 
-function getPanelsTitle(element: HTMLElement): HTMLAnchorElement[] {
-  return <HTMLAnchorElement[]>Array.from(element.querySelectorAll('.card > .card-header a'));
+function getPanelsTitle(element: HTMLElement): HTMLButtonElement[] {
+  return <HTMLButtonElement[]>Array.from(element.querySelectorAll('.card > .card-header button'));
 }
 
 function getButton(element: HTMLElement, index: number): HTMLButtonElement {
@@ -33,7 +31,11 @@ function expectOpenPanels(nativeEl: HTMLElement, openPanelsDef: boolean[]) {
   expect(panels.length).toBe(openPanelsDef.length);
 
   const panelsTitles = getPanelsTitle(nativeEl);
-  const result = panelsTitles.map((titleEl: HTMLAnchorElement) => titleEl.getAttribute('aria-expanded') === 'true');
+  const result = panelsTitles.map((titleEl: HTMLButtonElement) => {
+    const isAriaExpanded = titleEl.getAttribute('aria-expanded') === 'true';
+    const isCSSCollapsed = titleEl.classList.contains('collapsed');
+    return isAriaExpanded === !isCSSCollapsed ? isAriaExpanded : fail('inconsistent state');
+  });
 
   const panelContents = getPanelsContent(nativeEl);
   panelContents.forEach(
@@ -56,7 +58,7 @@ describe('ngb-accordion', () => {
   `;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({declarations: [TestComponent], imports: [NgbAccordionModule.forRoot()]});
+    TestBed.configureTestingModule({declarations: [TestComponent], imports: [NgbAccordionModule]});
     TestBed.overrideComponent(TestComponent, {set: {template: html}});
   });
 
@@ -328,7 +330,7 @@ describe('ngb-accordion', () => {
     tc.closeOthers = true;
     fixture.detectChanges();
 
-    const headingLinks = fixture.nativeElement.querySelectorAll('.card-header a');
+    const headingLinks = getPanelsTitle(fixture.nativeElement);
 
     headingLinks[0].click();
     fixture.detectChanges();
@@ -360,7 +362,7 @@ describe('ngb-accordion', () => {
     tc.panels[0].disabled = true;
     fixture.detectChanges();
 
-    const headingLinks = fixture.nativeElement.querySelectorAll('.card-header a');
+    const headingLinks = getPanelsTitle(fixture.nativeElement);
 
     headingLinks[0].click();
     fixture.detectChanges();
@@ -377,9 +379,9 @@ describe('ngb-accordion', () => {
     fixture.detectChanges();
     expectOpenPanels(el, [false, false, false]);
 
-    const headingLinks = fixture.nativeElement.querySelectorAll('.card-header a')[0];
+    const headingLinks = getPanelsTitle(fixture.nativeElement);
 
-    headingLinks.click();
+    headingLinks[0].click();
     fixture.detectChanges();
     expectOpenPanels(el, [false, false, false]);
 
@@ -405,56 +407,21 @@ describe('ngb-accordion', () => {
     expectOpenPanels(fixture.nativeElement, [true, false, false]);
   });
 
-  it('should have correct ARIA attributes when disabled', () => {
+  it('should have correct disabled state', () => {
     const fixture = TestBed.createComponent(TestComponent);
     const tc = fixture.componentInstance;
 
     tc.activeIds = ['one'];
     fixture.detectChanges();
-    let disabledPanelLink: HTMLAnchorElement = getPanels(fixture.nativeElement)[0].querySelector('a');
+    const headingLinks = getPanelsTitle(fixture.nativeElement);
     expectOpenPanels(fixture.nativeElement, [true, false, false]);
-    expect(disabledPanelLink.getAttribute('aria-disabled')).toBe('false');
-    expect(disabledPanelLink.getAttribute('tabindex')).toBeNull();
+    expect(headingLinks[0].disabled).toBeFalsy();
 
     tc.panels[0].disabled = true;
     fixture.detectChanges();
     expectOpenPanels(fixture.nativeElement, [false, false, false]);
-    expect(disabledPanelLink.getAttribute('aria-disabled')).toBe('true');
-    expect(disabledPanelLink.getAttribute('tabindex')).toBe('-1');
+    expect(headingLinks[0].disabled).toBeTruthy();
   });
-
-  it('should change the header class when disabled', () => {
-    const fixture = TestBed.createComponent(TestComponent);
-    const tc = fixture.componentInstance;
-
-    fixture.detectChanges();
-
-    const disabledPanelLink: HTMLAnchorElement = getPanels(fixture.nativeElement)[0].querySelector('a');
-    fixture.detectChanges();
-    expect(disabledPanelLink.classList.contains('text-muted')).toBeFalsy();
-
-    tc.panels[0].disabled = true;
-    fixture.detectChanges();
-    expect(disabledPanelLink.classList.contains('text-muted')).toBeTruthy();
-  });
-
-  it('should remove aria-controls attribute when closed', () => {
-    const fixture = TestBed.createComponent(TestComponent);
-    const tc = fixture.componentInstance;
-
-    fixture.detectChanges();
-    const headingLinks = fixture.nativeElement.querySelectorAll('.card-header a');
-
-    expectOpenPanels(fixture.nativeElement, [false, false, false]);
-    expect(headingLinks[0].getAttribute('aria-controls')).toBeNull();
-
-    tc.activeIds = ['one'];
-    fixture.detectChanges();
-    const panelsContent = getPanelsContent(fixture.nativeElement);
-    expectOpenPanels(fixture.nativeElement, [true, false, false]);
-    expect(headingLinks[0].getAttribute('aria-controls')).toBe(panelsContent[0].id);
-  });
-
 
   it('should remove collapsed panels content from DOM', () => {
     const fixture = TestBed.createComponent(TestComponent);
@@ -578,7 +545,7 @@ describe('ngb-accordion', () => {
   describe('Custom config', () => {
     let config: NgbAccordionConfig;
 
-    beforeEach(() => { TestBed.configureTestingModule({imports: [NgbAccordionModule.forRoot()]}); });
+    beforeEach(() => { TestBed.configureTestingModule({imports: [NgbAccordionModule]}); });
 
     beforeEach(inject([NgbAccordionConfig], (c: NgbAccordionConfig) => {
       config = c;
@@ -603,7 +570,7 @@ describe('ngb-accordion', () => {
 
     beforeEach(() => {
       TestBed.configureTestingModule(
-          {imports: [NgbAccordionModule.forRoot()], providers: [{provide: NgbAccordionConfig, useValue: config}]});
+          {imports: [NgbAccordionModule], providers: [{provide: NgbAccordionConfig, useValue: config}]});
     });
 
     it('should initialize inputs with provided config as provider', () => {
@@ -613,6 +580,181 @@ describe('ngb-accordion', () => {
       let accordion = fixture.componentInstance;
       expect(accordion.closeOtherPanels).toBe(config.closeOthers);
       expect(accordion.type).toBe(config.type);
+    });
+  });
+
+  describe('imperative API', () => {
+
+    function createTestImperativeAccordion(testHtml: string) {
+      const fixture = createTestComponent(testHtml);
+      const accordion = fixture.debugElement.query(By.directive(NgbAccordion)).componentInstance;
+      const nativeElement = fixture.nativeElement;
+      return {fixture, accordion, nativeElement};
+    }
+
+    it('should check if a panel with a given id is expanded', () => {
+      const testHtml = `
+      <ngb-accordion activeIds="first">
+        <ngb-panel id="first"></ngb-panel>
+        <ngb-panel id="second"></ngb-panel>
+      </ngb-accordion>`;
+
+      const {accordion, nativeElement} = createTestImperativeAccordion(testHtml);
+
+      expectOpenPanels(nativeElement, [true, false]);
+      expect(accordion.isExpanded('first')).toBe(true);
+      expect(accordion.isExpanded('second')).toBe(false);
+    });
+
+    it('should expanded and collapse individual panels', () => {
+      const testHtml = `
+      <ngb-accordion>
+        <ngb-panel id="first"></ngb-panel>
+        <ngb-panel id="second"></ngb-panel>
+      </ngb-accordion>`;
+
+      const {accordion, nativeElement, fixture} = createTestImperativeAccordion(testHtml);
+
+      expectOpenPanels(nativeElement, [false, false]);
+
+      accordion.expand('first');
+      fixture.detectChanges();
+      expectOpenPanels(nativeElement, [true, false]);
+
+      accordion.expand('second');
+      fixture.detectChanges();
+      expectOpenPanels(nativeElement, [true, true]);
+
+      accordion.collapse('second');
+      fixture.detectChanges();
+      expectOpenPanels(nativeElement, [true, false]);
+    });
+
+    it('should not expand / collapse if already expanded / collapsed', () => {
+      const testHtml = `
+      <ngb-accordion activeIds="first" (panelChange)="changeCallback()">
+        <ngb-panel id="first"></ngb-panel>
+        <ngb-panel id="second"></ngb-panel>
+      </ngb-accordion>`;
+
+      const {accordion, nativeElement, fixture} = createTestImperativeAccordion(testHtml);
+
+      expectOpenPanels(nativeElement, [true, false]);
+
+      spyOn(fixture.componentInstance, 'changeCallback');
+
+      accordion.expand('first');
+      fixture.detectChanges();
+      expectOpenPanels(nativeElement, [true, false]);
+
+      accordion.collapse('second');
+      fixture.detectChanges();
+      expectOpenPanels(nativeElement, [true, false]);
+
+      expect(fixture.componentInstance.changeCallback).not.toHaveBeenCalled();
+    });
+
+    it('should not expand disabled panels', () => {
+      const testHtml = `
+      <ngb-accordion (panelChange)="changeCallback()">
+        <ngb-panel id="first" [disabled]="true"></ngb-panel>
+      </ngb-accordion>`;
+
+      const {accordion, nativeElement, fixture} = createTestImperativeAccordion(testHtml);
+
+      expectOpenPanels(nativeElement, [false]);
+
+      spyOn(fixture.componentInstance, 'changeCallback');
+
+      accordion.expand('first');
+      fixture.detectChanges();
+      expectOpenPanels(nativeElement, [false]);
+      expect(fixture.componentInstance.changeCallback).not.toHaveBeenCalled();
+    });
+
+    it('should not expand / collapse when preventDefault called on the panelChange event', () => {
+      const testHtml = `
+      <ngb-accordion activeIds="first" (panelChange)="preventDefaultCallback($event)">
+        <ngb-panel id="first"></ngb-panel>
+        <ngb-panel id="second"></ngb-panel>
+      </ngb-accordion>`;
+
+      const {accordion, nativeElement, fixture} = createTestImperativeAccordion(testHtml);
+
+      expectOpenPanels(nativeElement, [true, false]);
+
+      accordion.collapse('first');
+      fixture.detectChanges();
+      expectOpenPanels(nativeElement, [true, false]);
+
+      accordion.expand('second');
+      fixture.detectChanges();
+      expectOpenPanels(nativeElement, [true, false]);
+    });
+
+    it('should expandAll when closeOthers is false', () => {
+
+      const testHtml = `
+      <ngb-accordion [closeOthers]="false">
+        <ngb-panel id="first"></ngb-panel>
+        <ngb-panel id="second"></ngb-panel>
+      </ngb-accordion>`;
+
+      const {accordion, nativeElement, fixture} = createTestImperativeAccordion(testHtml);
+
+      expectOpenPanels(nativeElement, [false, false]);
+
+      accordion.expandAll();
+      fixture.detectChanges();
+      expectOpenPanels(nativeElement, [true, true]);
+    });
+
+    it('should expand first panel when closeOthers is true and none of panels is expanded', () => {
+      const testHtml = `
+      <ngb-accordion [closeOthers]="true">
+        <ngb-panel id="first"></ngb-panel>
+        <ngb-panel id="second"></ngb-panel>
+      </ngb-accordion>`;
+
+      const {accordion, nativeElement, fixture} = createTestImperativeAccordion(testHtml);
+
+      expectOpenPanels(nativeElement, [false, false]);
+
+      accordion.expandAll();
+      fixture.detectChanges();
+      expectOpenPanels(nativeElement, [true, false]);
+    });
+
+    it('should do nothing if closeOthers is true and one panel is expanded', () => {
+      const testHtml = `
+      <ngb-accordion [closeOthers]="true" activeIds="second">
+        <ngb-panel id="first"></ngb-panel>
+        <ngb-panel id="second"></ngb-panel>
+      </ngb-accordion>`;
+
+      const {accordion, nativeElement, fixture} = createTestImperativeAccordion(testHtml);
+
+      expectOpenPanels(nativeElement, [false, true]);
+
+      accordion.expandAll();
+      fixture.detectChanges();
+      expectOpenPanels(nativeElement, [false, true]);
+    });
+
+    it('should collapse all panels', () => {
+      const testHtml = `
+      <ngb-accordion activeIds="second">
+        <ngb-panel id="first"></ngb-panel>
+        <ngb-panel id="second"></ngb-panel>
+      </ngb-accordion>`;
+
+      const {accordion, nativeElement, fixture} = createTestImperativeAccordion(testHtml);
+
+      expectOpenPanels(nativeElement, [false, true]);
+
+      accordion.collapseAll();
+      fixture.detectChanges();
+      expectOpenPanels(nativeElement, [false, false]);
     });
   });
 });
@@ -627,5 +769,6 @@ class TestComponent {
     {id: 'two', disabled: false, title: 'Panel 2', content: 'bar', type: ''},
     {id: 'three', disabled: false, title: 'Panel 3', content: 'baz', type: ''}
   ];
-  changeCallback = (event: any) => {};
+  changeCallback = (event: NgbPanelChangeEvent) => {};
+  preventDefaultCallback = (event: NgbPanelChangeEvent) => { event.preventDefault(); };
 }
