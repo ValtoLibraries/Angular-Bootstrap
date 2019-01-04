@@ -2,7 +2,15 @@ import {TestBed, ComponentFixture, inject, fakeAsync, tick} from '@angular/core/
 import {createGenericTestComponent, createKeyEvent} from '../test/common';
 
 import {By} from '@angular/platform-browser';
-import {Component, ViewChild, ChangeDetectionStrategy, Injectable, OnDestroy, TemplateRef} from '@angular/core';
+import {
+  Component,
+  ViewChild,
+  ChangeDetectionStrategy,
+  Injectable,
+  OnDestroy,
+  TemplateRef,
+  ViewContainerRef
+} from '@angular/core';
 
 import {Key} from '../util/key';
 
@@ -221,6 +229,16 @@ describe('ngb-popover', () => {
       fixture.detectChanges();
       expect(getWindow(fixture.nativeElement)).toBeNull();
       expect(spyService.called).toBeTruthy();
+    });
+
+    it('should not show a header if title is empty', () => {
+      const fixture = createTestComponent(`<div ngbPopover="Great tip!"></div>`);
+      const directive = fixture.debugElement.query(By.directive(NgbPopover));
+
+      directive.triggerEventHandler('click', {});
+      fixture.detectChanges();
+      const windowEl = getWindow(fixture.nativeElement);
+      expect(windowEl.querySelector('.popover-header')).toBeNull();
     });
 
     it('should not open a popover if content and title are empty', () => {
@@ -865,6 +883,22 @@ describe('ngb-popover', () => {
       expect(popover.popoverClass).toBe(config.popoverClass);
     });
   });
+
+  describe('non-regression', () => {
+
+    /**
+     * Under very specific conditions ngOnDestroy can be invoked without calling ngOnInit first.
+     * See discussion in https://github.com/ng-bootstrap/ng-bootstrap/issues/2199 for more details.
+     */
+    it('should not try to call listener cleanup function when no listeners registered', () => {
+      const fixture = createTestComponent(`
+         <ng-template #tpl><div ngbPopover="Great tip!"></div></ng-template>
+         <button (click)="createAndDestroyTplWithAPopover(tpl)"></button>
+       `);
+      const buttonEl = fixture.debugElement.query(By.css('button'));
+      buttonEl.triggerEventHandler('click', {});
+    });
+  });
 });
 
 @Component({selector: 'test-cmpt', template: ``})
@@ -875,6 +909,13 @@ export class TestComponent {
   placement: string;
 
   @ViewChild(NgbPopover) popover: NgbPopover;
+
+  constructor(private _vcRef: ViewContainerRef) {}
+
+  createAndDestroyTplWithAPopover(tpl: TemplateRef<any>) {
+    this._vcRef.createEmbeddedView(tpl, {}, 0);
+    this._vcRef.remove(0);
+  }
 
   shown() {}
   hidden() {}

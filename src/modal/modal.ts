@@ -24,4 +24,18 @@ export class NgbModal {
     const combinedOptions = Object.assign({}, this._config, options);
     return this._modalStack.open(this._moduleCFR, this._injector, content, combinedOptions);
   }
+
+  /**
+   * Dismiss all currently displayed modal windows with the supplied reason.
+   *
+   * @since 3.1.0
+   */
+  dismissAll(reason?: any) { this._modalStack.dismissAll(reason); }
+
+  /**
+   * Indicates if there are currently any open modal windows in the application.
+   *
+   * @since 3.3.0
+   */
+  hasOpenModals(): boolean { return this._modalStack.hasOpenModals(); }
 }

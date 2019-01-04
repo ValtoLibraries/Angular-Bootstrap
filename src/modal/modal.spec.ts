@@ -1,18 +1,19 @@
+import {CommonModule} from '@angular/common';
 import {
   Component,
-  Injectable,
-  ViewChild,
-  OnDestroy,
-  NgModule,
-  getDebugNode,
   DebugElement,
-  Injector
+  getDebugNode,
+  Injectable,
+  Injector,
+  NgModule,
+  OnDestroy,
+  ViewChild
 } from '@angular/core';
-import {CommonModule} from '@angular/common';
-import {TestBed, ComponentFixture, async} from '@angular/core/testing';
+import {async, ComponentFixture, TestBed} from '@angular/core/testing';
 
-import {NgbModalModule, NgbModal, NgbActiveModal, NgbModalRef} from './modal.module';
 import {NgbModalConfig} from './modal-config';
+import {NgbActiveModal, NgbModal, NgbModalModule, NgbModalRef} from './modal.module';
+
 
 const NOOP = () => {};
 
@@ -196,6 +197,26 @@ describe('ngb-modal', () => {
         expect(fixture.nativeElement).not.toHaveModal();
       });
 
+      it('should open and close modal from template implicit context', () => {
+        fixture.componentInstance.openTplImplicitContext();
+        fixture.detectChanges();
+        expect(fixture.nativeElement).toHaveModal();
+
+        (<HTMLElement>document.querySelector('button#close')).click();
+        fixture.detectChanges();
+        expect(fixture.nativeElement).not.toHaveModal();
+      });
+
+      it('should open and dismiss modal from template implicit context', () => {
+        fixture.componentInstance.openTplImplicitContext().result.catch(NOOP);
+        fixture.detectChanges();
+        expect(fixture.nativeElement).toHaveModal();
+
+        (<HTMLElement>document.querySelector('button#dismiss')).click();
+        fixture.detectChanges();
+        expect(fixture.nativeElement).not.toHaveModal();
+      });
+
       it('should resolve result promise on close', () => {
         let resolvedResult;
         fixture.componentInstance.openTplClose().result.then((result) => resolvedResult = result);
@@ -222,17 +243,19 @@ describe('ngb-modal', () => {
         fixture.whenStable().then(() => { expect(rejectReason).toBe('myReason'); });
       });
 
-      it('should add / remove "modal-open" class to body when modal is open', () => {
-        const modalRef = fixture.componentInstance.open('bar');
-        fixture.detectChanges();
-        expect(fixture.nativeElement).toHaveModal();
-        expect(document.body).toHaveCssClass('modal-open');
+      it('should add / remove "modal-open" class to body when modal is open', async(() => {
+           const modalRef = fixture.componentInstance.open('bar');
+           fixture.detectChanges();
+           expect(fixture.nativeElement).toHaveModal();
+           expect(document.body).toHaveCssClass('modal-open');
 
-        modalRef.close('bar result');
-        fixture.detectChanges();
-        expect(fixture.nativeElement).not.toHaveModal();
-        expect(document.body).not.toHaveCssClass('modal-open');
-      });
+           modalRef.close('bar result');
+           fixture.detectChanges();
+           fixture.whenStable().then(() => {
+             expect(fixture.nativeElement).not.toHaveModal();
+             expect(document.body).not.toHaveCssClass('modal-open');
+           });
+         }));
 
       it('should not throw when close called multiple times', () => {
         const modalInstance = fixture.componentInstance.open('foo');
@@ -244,6 +267,24 @@ describe('ngb-modal', () => {
         expect(fixture.nativeElement).not.toHaveModal();
 
         modalInstance.close('some result');
+        fixture.detectChanges();
+        expect(fixture.nativeElement).not.toHaveModal();
+      });
+
+      it('should dismiss with dismissAll', () => {
+        fixture.componentInstance.open('foo');
+        fixture.detectChanges();
+        expect(fixture.nativeElement).toHaveModal('foo');
+
+        fixture.componentInstance.dismissAll('dismissAllArg');
+        fixture.detectChanges();
+        expect(fixture.nativeElement).not.toHaveModal();
+      });
+
+      it('should not throw when dismissAll called with no active modal', () => {
+        expect(fixture.nativeElement).not.toHaveModal();
+
+        fixture.componentInstance.dismissAll();
         fixture.detectChanges();
         expect(fixture.nativeElement).not.toHaveModal();
       });
@@ -262,6 +303,64 @@ describe('ngb-modal', () => {
         modalRef.dismiss('some reason');
         fixture.detectChanges();
         expect(fixture.nativeElement).not.toHaveModal();
+      });
+
+      it('should indicate if there are open modal windows', async(() => {
+           fixture.componentInstance.open('foo');
+           fixture.detectChanges();
+           expect(fixture.nativeElement).toHaveModal('foo');
+           expect(fixture.componentInstance.modalService.hasOpenModals()).toBeTruthy();
+
+           fixture.componentInstance.dismissAll();
+           fixture.detectChanges();
+           expect(fixture.nativeElement).not.toHaveModal();
+           fixture.whenStable().then(
+               () => { expect(fixture.componentInstance.modalService.hasOpenModals()).toBeFalsy(); });
+         }));
+    });
+
+    describe('stacked  modals', () => {
+
+      it('should not remove "modal-open" class on body when closed modal is not last', async(() => {
+           const modalRef1 = fixture.componentInstance.open('foo');
+           const modalRef2 = fixture.componentInstance.open('bar');
+           fixture.detectChanges();
+           expect(fixture.nativeElement).toHaveModal();
+           expect(document.body).toHaveCssClass('modal-open');
+
+           modalRef1.close('foo result');
+           fixture.detectChanges();
+           fixture.whenStable().then(() => {
+             expect(fixture.nativeElement).toHaveModal();
+             expect(document.body).toHaveCssClass('modal-open');
+
+             modalRef2.close('bar result');
+             fixture.detectChanges();
+             fixture.whenStable().then(() => {
+               expect(fixture.nativeElement).not.toHaveModal();
+               expect(document.body).not.toHaveCssClass('modal-open');
+             });
+           });
+         }));
+
+      it('should dismiss modals on ESC in correct order', () => {
+        fixture.componentInstance.open('foo').result.catch(NOOP);
+        fixture.componentInstance.open('bar').result.catch(NOOP);
+        const ngbModalWindow1 = document.querySelectorAll('ngb-modal-window')[0];
+        const ngbModalWindow2 = document.querySelectorAll('ngb-modal-window')[1];
+        fixture.detectChanges();
+        expect(fixture.nativeElement).toHaveModal(['foo', 'bar']);
+        expect(document.activeElement).toBe(ngbModalWindow2);
+
+        (<DebugElement>getDebugNode(document.activeElement)).triggerEventHandler('keyup.esc', {});
+        fixture.detectChanges();
+        expect(fixture.nativeElement).toHaveModal(['foo']);
+        expect(document.activeElement).toBe(ngbModalWindow1);
+
+        (<DebugElement>getDebugNode(document.activeElement)).triggerEventHandler('keyup.esc', {});
+        fixture.detectChanges();
+        expect(fixture.nativeElement).not.toHaveModal();
+        expect(document.activeElement).toBe(document.body);
       });
     });
 
@@ -386,7 +485,7 @@ describe('ngb-modal', () => {
         expect(fixture.nativeElement).not.toHaveModal();
       });
 
-      it('should dimiss when the callback does not return false', () => {
+      it('should dismiss when the callback does not return false', () => {
         fixture.componentInstance.openTplDismiss({beforeDismiss: () => {}});
         fixture.detectChanges();
         expect(fixture.nativeElement).toHaveModal();
@@ -463,7 +562,7 @@ describe('ngb-modal', () => {
         expect(fixture.nativeElement).not.toHaveModal();
       });
 
-      it('should throw when the specified container element doesnt exist', () => {
+      it('should throw when the specified container element doesn\'t exist', () => {
         const brokenSelector = '#notInTheDOM';
         expect(() => {
           fixture.componentInstance.open('foo', {container: brokenSelector});
@@ -577,14 +676,13 @@ describe('ngb-modal', () => {
 
     describe('focus management', () => {
 
-      it('should focus modal window and return focus to previously focused element', () => {
+      it('should return focus to previously focused element', () => {
         fixture.detectChanges();
         const openButtonEl = fixture.nativeElement.querySelector('button#open');
         openButtonEl.focus();
         openButtonEl.click();
         fixture.detectChanges();
         expect(fixture.nativeElement).toHaveModal('from button');
-        expect(document.activeElement).toBe(document.querySelector('ngb-modal-window'));
 
         fixture.componentInstance.close();
         expect(fixture.nativeElement).not.toHaveModal();
@@ -628,6 +726,47 @@ describe('ngb-modal', () => {
         fixture.componentInstance.close();
         expect(fixture.nativeElement).not.toHaveModal();
         expect(document.activeElement).toBe(document.body);
+      });
+
+      describe('initial focus', () => {
+        it('should focus the proper specified element when [ngbAutofocus] is used', () => {
+          fixture.detectChanges();
+          const modal = fixture.componentInstance.openCmpt(WithAutofocusModalCmpt);
+          fixture.detectChanges();
+
+          expect(document.activeElement).toBe(document.querySelector('button.withNgbAutofocus'));
+          modal.close();
+        });
+
+        it('should focus the first focusable element when [ngbAutofocus] is not used', () => {
+          fixture.detectChanges();
+          const modal = fixture.componentInstance.openCmpt(WithFirstFocusableModalCmpt);
+          fixture.detectChanges();
+
+          expect(document.activeElement).toBe(document.querySelector('button.firstFocusable'));
+          modal.close();
+          fixture.detectChanges();
+        });
+
+        it('should skip element with tabindex=-1 when finding the first focusable element', () => {
+          fixture.detectChanges();
+          const modal = fixture.componentInstance.openCmpt(WithSkipTabindexFirstFocusableModalCmpt);
+          fixture.detectChanges();
+
+          expect(document.activeElement).toBe(document.querySelector('button.other'));
+          modal.close();
+          fixture.detectChanges();
+        });
+
+        it('should focus modal window as a default fallback option', () => {
+          fixture.detectChanges();
+          const modal = fixture.componentInstance.open('content');
+          fixture.detectChanges();
+
+          expect(document.activeElement).toBe(document.querySelector('ngb-modal-window'));
+          modal.close();
+          fixture.detectChanges();
+        });
       });
     });
 
@@ -739,6 +878,31 @@ export class WithActiveModalCmpt {
   close() { this.activeModal.close('from inside'); }
 }
 
+@Component(
+    {selector: 'modal-autofocus-cmpt', template: `<button class="withNgbAutofocus" ngbAutofocus>Click Me</button>`})
+export class WithAutofocusModalCmpt {
+}
+
+@Component({
+  selector: 'modal-firstfocusable-cmpt',
+  template: `
+  <button class="firstFocusable close">Close</button>
+  <button class="other">Other button</button>
+`
+})
+export class WithFirstFocusableModalCmpt {
+}
+
+@Component({
+  selector: 'modal-skip-tabindex-firstfocusable-cmpt',
+  template: `
+  <button tabindex="-1" class="firstFocusable close">Close</button>
+  <button class="other">Other button</button>
+`
+})
+export class WithSkipTabindexFirstFocusableModalCmpt {
+}
+
 @Component({
   selector: 'test-cmpt',
   template: `
@@ -750,6 +914,10 @@ export class WithActiveModalCmpt {
     </ng-template>
     <ng-template #contentWithDismiss let-dismiss="dismiss">
       <button id="dismiss" (click)="dismiss('myReason')">Dismiss me</button>
+    </ng-template>
+    <ng-template #contentWithImplicitContext let-modal>
+      <button id="close" (click)="modal.close('myResult')">Close me</button>
+      <button id="dismiss" (click)="modal.dismiss('myReason')">Dismiss me</button>
     </ng-template>
     <ng-template #contentWithIf>
       <ng-template [ngIf]="show">
@@ -773,9 +941,10 @@ class TestComponent {
   @ViewChild('destroyableContent') tplDestroyableContent;
   @ViewChild('contentWithClose') tplContentWithClose;
   @ViewChild('contentWithDismiss') tplContentWithDismiss;
+  @ViewChild('contentWithImplicitContext') tplContentWithImplicitContext;
   @ViewChild('contentWithIf') tplContentWithIf;
 
-  constructor(private modalService: NgbModal) {}
+  constructor(public modalService: NgbModal) {}
 
   open(content: string, options?: Object) {
     this.openedModal = this.modalService.open(content, options);
@@ -786,19 +955,29 @@ class TestComponent {
       this.openedModal.close('ok');
     }
   }
+  dismissAll(reason?: any) { this.modalService.dismissAll(reason); }
   openTpl(options?: Object) { return this.modalService.open(this.tplContent, options); }
   openCmpt(cmptType: any, options?: Object) { return this.modalService.open(cmptType, options); }
   openDestroyableTpl(options?: Object) { return this.modalService.open(this.tplDestroyableContent, options); }
   openTplClose(options?: Object) { return this.modalService.open(this.tplContentWithClose, options); }
   openTplDismiss(options?: Object) { return this.modalService.open(this.tplContentWithDismiss, options); }
+  openTplImplicitContext(options?: Object) {
+    return this.modalService.open(this.tplContentWithImplicitContext, options);
+  }
   openTplIf(options?: Object) { return this.modalService.open(this.tplContentWithIf, options); }
 }
 
 @NgModule({
-  declarations: [TestComponent, CustomInjectorCmpt, DestroyableCmpt, WithActiveModalCmpt],
+  declarations: [
+    TestComponent, CustomInjectorCmpt, DestroyableCmpt, WithActiveModalCmpt, WithAutofocusModalCmpt,
+    WithFirstFocusableModalCmpt, WithSkipTabindexFirstFocusableModalCmpt
+  ],
   exports: [TestComponent, DestroyableCmpt],
   imports: [CommonModule, NgbModalModule],
-  entryComponents: [CustomInjectorCmpt, DestroyableCmpt, WithActiveModalCmpt],
+  entryComponents: [
+    CustomInjectorCmpt, DestroyableCmpt, WithActiveModalCmpt, WithAutofocusModalCmpt, WithFirstFocusableModalCmpt,
+    WithSkipTabindexFirstFocusableModalCmpt
+  ],
   providers: [SpyService]
 })
 class NgbModalTestModule {

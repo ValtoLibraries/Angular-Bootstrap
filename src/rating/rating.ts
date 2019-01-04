@@ -13,7 +13,7 @@ import {
   ChangeDetectorRef
 } from '@angular/core';
 import {NgbRatingConfig} from './rating-config';
-import {toString, getValueInRange} from '../util/util';
+import {getValueInRange} from '../util/util';
 import {Key} from '../util/key';
 import {ControlValueAccessor, NG_VALUE_ACCESSOR} from '@angular/forms';
 
@@ -141,26 +141,28 @@ export class NgbRating implements ControlValueAccessor,
   handleClick(value: number) { this.update(this.resettable && this.rate === value ? 0 : value); }
 
   handleKeyDown(event: KeyboardEvent) {
-    if (Key[toString(event.which)]) {
-      event.preventDefault();
-
-      switch (event.which) {
-        case Key.ArrowDown:
-        case Key.ArrowLeft:
-          this.update(this.rate - 1);
-          break;
-        case Key.ArrowUp:
-        case Key.ArrowRight:
-          this.update(this.rate + 1);
-          break;
-        case Key.Home:
-          this.update(0);
-          break;
-        case Key.End:
-          this.update(this.max);
-          break;
-      }
+    // tslint:disable-next-line:deprecation
+    switch (event.which) {
+      case Key.ArrowDown:
+      case Key.ArrowLeft:
+        this.update(this.rate - 1);
+        break;
+      case Key.ArrowUp:
+      case Key.ArrowRight:
+        this.update(this.rate + 1);
+        break;
+      case Key.Home:
+        this.update(0);
+        break;
+      case Key.End:
+        this.update(this.max);
+        break;
+      default:
+        return;
     }
+
+    // note 'return' in default case
+    event.preventDefault();
   }
 
   ngOnChanges(changes: SimpleChanges) {
@@ -210,7 +212,7 @@ export class NgbRating implements ControlValueAccessor,
       return 100;
     }
     if (diff < 1 && diff > 0) {
-      return Number.parseInt((diff * 100).toFixed(2));
+      return parseInt((diff * 100).toFixed(2), 10);
     }
 
     return 0;

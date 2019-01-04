@@ -20,7 +20,7 @@ export interface ResultTemplateContext {
 @Component({
   selector: 'ngb-typeahead-window',
   exportAs: 'ngbTypeaheadWindow',
-  host: {'class': 'dropdown-menu show', 'role': 'listbox', '[id]': 'id'},
+  host: {'(mousedown)': '$event.preventDefault()', 'class': 'dropdown-menu show', 'role': 'listbox', '[id]': 'id'},
   template: `
     <ng-template #rt let-result="result" let-term="term" let-formatter="formatter">
       <ngb-highlight [result]="formatter(result)" [term]="term"></ngb-highlight>
@@ -41,7 +41,7 @@ export class NgbTypeaheadWindow implements OnInit {
   activeIdx = 0;
 
   /**
-   *  The id for the typeahead widnow. The id should be unique and the same
+   *  The id for the typeahead window. The id should be unique and the same
    *  as the associated typeahead's id.
    */
   @Input() id: string;

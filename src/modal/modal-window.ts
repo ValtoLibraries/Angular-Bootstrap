@@ -1,19 +1,18 @@
 import {DOCUMENT} from '@angular/common';
 import {
-  Component,
-  Output,
-  EventEmitter,
-  Input,
-  Inject,
-  ElementRef,
-  Renderer2,
-  OnInit,
   AfterViewInit,
-  OnDestroy
+  Component,
+  ElementRef,
+  EventEmitter,
+  Inject,
+  Input,
+  OnDestroy,
+  OnInit,
+  Output
 } from '@angular/core';
 
+import {getFocusableBoundaryElements} from '../util/focus-trap';
 import {ModalDismissReasons} from './modal-dismiss-reasons';
-import {ngbFocusTrap} from '../util/focus-trap';
 
 @Component({
   selector: 'ngb-modal-window',
@@ -33,7 +32,6 @@ import {ngbFocusTrap} from '../util/focus-trap';
 })
 export class NgbModalWindow implements OnInit,
     AfterViewInit, OnDestroy {
-  private _document: any;
   private _elWithFocus: Element;  // element that is focused prior to modal opening
 
   @Input() ariaLabelledBy: string;
@@ -45,10 +43,7 @@ export class NgbModalWindow implements OnInit,
 
   @Output('dismiss') dismissEvent = new EventEmitter();
 
-  constructor(@Inject(DOCUMENT) document, private _elRef: ElementRef<HTMLElement>, private _renderer: Renderer2) {
-    this._document = document;
-    ngbFocusTrap(this._elRef.nativeElement, this.dismissEvent);
-  }
+  constructor(@Inject(DOCUMENT) private _document: any, private _elRef: ElementRef<HTMLElement>) {}
 
   backdropClick($event): void {
     if (this.backdrop === true && this._elRef.nativeElement === $event.target) {
@@ -64,14 +59,15 @@ export class NgbModalWindow implements OnInit,
 
   dismiss(reason): void { this.dismissEvent.emit(reason); }
 
-  ngOnInit() {
-    this._elWithFocus = this._document.activeElement;
-    this._renderer.addClass(this._document.body, 'modal-open');
-  }
+  ngOnInit() { this._elWithFocus = this._document.activeElement; }
 
   ngAfterViewInit() {
     if (!this._elRef.nativeElement.contains(document.activeElement)) {
-      this._elRef.nativeElement['focus'].apply(this._elRef.nativeElement, []);
+      const autoFocusable = this._elRef.nativeElement.querySelector(`[ngbAutofocus]`) as HTMLElement;
+      const firstFocusable = getFocusableBoundaryElements(this._elRef.nativeElement)[0];
+
+      const elementToFocus = autoFocusable || firstFocusable || this._elRef.nativeElement;
+      elementToFocus.focus();
     }
   }
 
@@ -85,9 +81,7 @@ export class NgbModalWindow implements OnInit,
     } else {
       elementToFocus = body;
     }
-    elementToFocus['focus'].apply(elementToFocus, []);
-
+    elementToFocus.focus();
     this._elWithFocus = null;
-    this._renderer.removeClass(body, 'modal-open');
   }
 }

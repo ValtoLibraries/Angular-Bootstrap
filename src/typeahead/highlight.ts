@@ -1,4 +1,4 @@
-import {Component, Input, OnChanges, ChangeDetectionStrategy, SimpleChanges} from '@angular/core';
+import {Component, Input, OnChanges, ChangeDetectionStrategy, SimpleChanges, ViewEncapsulation} from '@angular/core';
 import {regExpEscape, toString} from '../util/util';
 
 /**
@@ -8,14 +8,11 @@ import {regExpEscape, toString} from '../util/util';
 @Component({
   selector: 'ngb-highlight',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  encapsulation: ViewEncapsulation.None,
   template: `<ng-template ngFor [ngForOf]="parts" let-part let-isOdd="odd">` +
       `<span *ngIf="isOdd; else even" [class]="highlightClass">{{part}}</span><ng-template #even>{{part}}</ng-template>` +
       `</ng-template>`,  // template needs to be formatted in a certain way so we don't add empty text nodes
-  styles: [`
-    .ngb-highlight {
-      font-weight: bold;
-    }
-  `]
+  styleUrls: ['./highlight.scss']
 })
 export class NgbHighlight implements OnChanges {
   parts: string[];

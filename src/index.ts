@@ -42,15 +42,18 @@ export {
   NgbPeriod,
   NgbCalendarIslamicCivil,
   NgbCalendarIslamicUmalqura,
+  NgbCalendarHebrew,
   NgbCalendarPersian,
   NgbDatepickerModule,
   NgbDatepickerI18n,
+  NgbDatepickerI18nHebrew,
   NgbDatepickerConfig,
   NgbDateStruct,
   NgbDate,
   NgbDateParserFormatter,
   NgbDateAdapter,
   NgbDateNativeAdapter,
+  NgbDateNativeUTCAdapter,
   NgbDatepicker,
   NgbInputDatepicker
 } from './datepicker/datepicker.module';

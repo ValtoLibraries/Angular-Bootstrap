@@ -17,7 +17,8 @@ import {
   ViewContainerRef,
   ComponentFactoryResolver,
   NgZone,
-  SimpleChanges
+  SimpleChanges,
+  ViewEncapsulation
 } from '@angular/core';
 import {DOCUMENT} from '@angular/common';
 import {fromEvent, race} from 'rxjs';
@@ -35,6 +36,7 @@ let nextId = 0;
 @Component({
   selector: 'ngb-popover-window',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  encapsulation: ViewEncapsulation.None,
   host: {
     '[class]':
         '"popover bs-popover-" + placement.split("-")[0]+" bs-popover-" + placement + (popoverClass ? " " + popoverClass : "")',
@@ -43,44 +45,16 @@ let nextId = 0;
   },
   template: `
     <div class="arrow"></div>
-    <h3 class="popover-header">
+    <h3 class="popover-header" *ngIf="title != null">
       <ng-template #simpleTitle>{{title}}</ng-template>
       <ng-template [ngTemplateOutlet]="isTitleTemplate() ? title : simpleTitle" [ngTemplateOutletContext]="context"></ng-template>
     </h3>
     <div class="popover-body"><ng-content></ng-content></div>`,
-  styles: [`
-    :host.bs-popover-top .arrow, :host.bs-popover-bottom .arrow {
-      left: 50%;
-      margin-left: -5px;
-    }
-
-    :host.bs-popover-top-left .arrow, :host.bs-popover-bottom-left .arrow {
-      left: 2em;
-    }
-
-    :host.bs-popover-top-right .arrow, :host.bs-popover-bottom-right .arrow {
-      left: auto;
-      right: 2em;
-    }
-
-    :host.bs-popover-left .arrow, :host.bs-popover-right .arrow {
-      top: 50%;
-      margin-top: -5px;
-    }
-
-    :host.bs-popover-left-top .arrow, :host.bs-popover-right-top .arrow {
-      top: 0.7em;
-    }
-
-    :host.bs-popover-left-bottom .arrow, :host.bs-popover-right-bottom .arrow {
-      top: auto;
-      bottom: 0.7em;
-    }
-  `]
+  styleUrls: ['./popover.scss']
 })
 export class NgbPopoverWindow {
   @Input() placement: Placement = 'top';
-  @Input() title: string | TemplateRef<any>;
+  @Input() title: undefined | string | TemplateRef<any>;
   @Input() id: string;
   @Input() popoverClass: string;
   @Input() context: any;
@@ -250,7 +224,10 @@ export class NgbPopover implements OnInit, OnDestroy, OnChanges {
           requestAnimationFrame(() => justOpened = false);
 
           const escapes$ = fromEvent<KeyboardEvent>(this._document, 'keyup')
-                               .pipe(takeUntil(this.hidden), filter(event => event.which === Key.Escape));
+                               .pipe(
+                                   takeUntil(this.hidden),
+                                   // tslint:disable-next-line:deprecation
+                                   filter(event => event.which === Key.Escape));
 
           const clicks$ = fromEvent<MouseEvent>(this._document, 'click')
                               .pipe(
@@ -308,7 +285,11 @@ export class NgbPopover implements OnInit, OnDestroy, OnChanges {
 
   ngOnDestroy() {
     this.close();
-    this._unregisterListenersFn();
+    // This check is needed as it might happen that ngOnDestroy is called before ngOnInit
+    // under certain conditions, see: https://github.com/ng-bootstrap/ng-bootstrap/issues/2199
+    if (this._unregisterListenersFn) {
+      this._unregisterListenersFn();
+    }
     this._zoneSubscription.unsubscribe();
   }
 

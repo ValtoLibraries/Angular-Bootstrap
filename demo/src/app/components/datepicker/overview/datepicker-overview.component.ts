@@ -1,16 +1,18 @@
-import {ChangeDetectionStrategy, Component, Input} from '@angular/core';
-import {NgbDateParserFormatter, NgbDateStruct} from '@ng-bootstrap/ng-bootstrap';
-import {NgbdOverviewSection} from '../../shared/overview';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
+
+import { NgbdDemoList } from '../../shared';
+import { NgbdOverview } from '../../shared/overview';
 
 @Component({
   selector: 'ngbd-datepicker-overview',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  templateUrl: './datepicker-overview.component.html'
+  templateUrl: './datepicker-overview.component.html',
+  host: {
+    '[class.overview]': 'true'
+  }
 })
 
 export class NgbdDatepickerOverviewComponent {
-
-  @Input() sections: { [name: string]: NgbdOverviewSection };
 
   snippets = {
     basic: `
@@ -39,11 +41,20 @@ export class NgbdDatepickerOverviewComponent {
 <button (click)="d.navigateTo({year: 2048, month: 1})">Goto JAN 2048</button>
 `,
     dateStruct: `
-const date: NgbDateStruct = { day: 14, month: 7, year: 1789 }; // July, 14 1789
+const date: NgbDateStruct = { year: 1789, month: 7, day: 14 }; // July, 14 1789
+`,
+date: `
+const date: NgbDate = new NgbDate(1789, 7, 14);                // July, 14 1789
+
+date.before({ year: 1789, month: 7, day: 14 });                // compare to a structure
+date.equals(NgbDate.from({ year: 1789, month: 7, day: 14 }));  // or to another date object
 `,
     nativeAdapter: `
 // native adapter is bundled with library
 providers: [{provide: NgbDateAdapter, useClass: NgbDateNativeAdapter}]
+
+// or another native adapter that works with UTC dates
+providers: [{provide: NgbDateAdapter, useClass: NgbDateNativeUTCAdapter}]
 `,
     adapter: `
 @Injectable()
@@ -66,24 +77,28 @@ export abstract class NgbDateParserFormatter {
 providers: [{provide: NgbDateParserFormatter, useClass: YourOwnParserFormatter}]
 `,
     dayTemplate: `
-<ng-template #t let-date="date">
+<ng-template #t let-date>
 	{{ date.day }}
 </ng-template>
 
 <ngbDatepicker [dayTemplate]=“t”/>
 `,
+    footerTemplate: `
+<ng-template #t>
+  <button (click)="model = today">Today</button>
+</ng-template>
+
+<ngbDatepicker [footerTemplate]=“t”/>
+`,
   disablingTS: `
 // disable the 13th of each month
-const isDisabled = (date: NgbDateStruct, current: {month: number}) => day.date === 13;
+const isDisabled = (date: NgbDate, current: {month: number}) => day.date === 13;
 `,
   disablingHTML: `
-<ngb-datepicker [minDate]="{year: 2010, month: 1, day, 1}"
-                [maxDate]="{year: 2048, month 12, day, 31}"
+<ngb-datepicker [minDate]="{year: 2010, month: 1, day: 1}"
+                [maxDate]="{year: 2048, month: 12, day: 31}"
                 [markDisabled]="isDisabled">
 </ngb-datepicker>
-`,
-  calendars: `
-providers: [{provide: NgbCalendar, useClass: NgbCalendarHijri}]
 `,
   i18n: `
 @Injectable()
@@ -98,4 +113,10 @@ export abstract class NgbDatepickerI18n {
 providers: [{provide: NgbDatepickerI18n, useClass: YourOwnDatepickerI18n}]
 `
   };
+
+  sections: NgbdOverview = {};
+
+  constructor(demoList: NgbdDemoList) {
+    this.sections = demoList.getOverviewSections('datepicker');
+  }
 }

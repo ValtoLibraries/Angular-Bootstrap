@@ -81,6 +81,21 @@ describe('ngb-carousel', () => {
        discardPeriodicTasks();
      }));
 
+  it('should work without any slides', fakeAsync(() => {
+       const fixture = createTestComponent(`<ngb-carousel [interval]="1000"></ngb-carousel>`);
+
+       tick(1001);
+       fixture.detectChanges();
+
+       const carousel = fixture.nativeElement.querySelector('ngb-carousel');
+       const slides = fixture.nativeElement.querySelectorAll('.carousel-item');
+
+       expect(carousel).toBeTruthy();
+       expect(slides.length).toBe(0);
+
+       discardPeriodicTasks();
+     }));
+
 
   it('should mark the requested slide as active', fakeAsync(() => {
        const html = `
@@ -113,14 +128,119 @@ describe('ngb-carousel', () => {
        discardPeriodicTasks();
      }));
 
+  it('should change slide on prev/next API calls', fakeAsync(() => {
+       const html = `
+      <ngb-carousel #c [interval]="0">
+        <ng-template ngbSlide>foo</ng-template>
+        <ng-template ngbSlide>bar</ng-template>
+        <ng-template ngbSlide id="s3">baz</ng-template>
+      </ngb-carousel>
+      <button id="next" (click)="c.next()">Next</button>
+      <button id="prev" (click)="c.prev()">Prev</button>
+      <button id="select" (click)="c.select('s3')">Select 3</button>
+    `;
+
+       const fixture = createTestComponent(html);
+       const next = fixture.nativeElement.querySelector('#next');
+       const prev = fixture.nativeElement.querySelector('#prev');
+       const select = fixture.nativeElement.querySelector('#select');
+
+       expectActiveSlides(fixture.nativeElement, [true, false, false]);
+
+       next.click();
+       fixture.detectChanges();
+       expectActiveSlides(fixture.nativeElement, [false, true, false]);
+
+       prev.click();
+       fixture.detectChanges();
+       expectActiveSlides(fixture.nativeElement, [true, false, false]);
+
+       select.click();
+       fixture.detectChanges();
+       expectActiveSlides(fixture.nativeElement, [false, false, true]);
+     }));
+
+  it('should pause/resume slide change on API calls', fakeAsync(() => {
+       const html = `
+     <ngb-carousel #c [interval]="1000">
+       <ng-template ngbSlide>foo</ng-template>
+       <ng-template ngbSlide>bar</ng-template>
+     </ngb-carousel>
+     <button id="pause" (click)="c.pause()">Next</button>
+     <button id="cycle" (click)="c.cycle()">Prev</button>
+   `;
+
+       const fixture = createTestComponent(html);
+       const pause = fixture.nativeElement.querySelector('#pause');
+       const cycle = fixture.nativeElement.querySelector('#cycle');
+
+       expectActiveSlides(fixture.nativeElement, [true, false]);
+
+       tick(1000);
+       fixture.detectChanges();
+       expectActiveSlides(fixture.nativeElement, [false, true]);
+
+       pause.click();
+       tick(1000);
+       fixture.detectChanges();
+       expectActiveSlides(fixture.nativeElement, [false, true]);
+
+       cycle.click();
+       tick(1000);
+       fixture.detectChanges();
+       expectActiveSlides(fixture.nativeElement, [true, false]);
+
+       discardPeriodicTasks();
+     }));
+
+  it('should mark component for check for API calls', () => {
+    const html = `
+      <ngb-carousel #c [interval]="0">
+        <ng-template ngbSlide>foo</ng-template>
+        <ng-template ngbSlide>bar</ng-template>
+        <ng-template ngbSlide *ngIf="addNewSlide">baz</ng-template>
+      </ngb-carousel>
+      <button id="next" (click)="c.next(); addNewSlide = true">Next</button>
+    `;
+
+    const fixture = createTestComponent(html);
+    const next = fixture.nativeElement.querySelector('#next');
+
+    expectActiveSlides(fixture.nativeElement, [true, false]);
+
+    next.click();
+    fixture.detectChanges();
+    expectActiveSlides(fixture.nativeElement, [false, true, false]);
+  });
+
+  it('should mark component for check when slides change', () => {
+    const html = `
+      <ngb-carousel #c [interval]="0">
+        <ng-template ngbSlide *ngFor="let s of slides">
+          <div class="slide">{{ s }}</div>
+        </ng-template>
+      </ngb-carousel>
+    `;
+
+    function getSlidesText(element: HTMLElement): string[] {
+      return Array.from(element.querySelectorAll('.carousel-item .slide')).map((el: HTMLElement) => el.innerHTML);
+    }
+
+    const fixture = createTestComponent(html);
+    expect(getSlidesText(fixture.nativeElement)).toEqual(['a', 'b']);
+
+    fixture.componentInstance.slides = ['c', 'd'];
+    fixture.detectChanges();
+    expect(getSlidesText(fixture.nativeElement)).toEqual(['c', 'd']);
+  });
 
   it('should change slide on indicator click', fakeAsync(() => {
        const html = `
-      <ngb-carousel>
-        <ng-template ngbSlide>foo</ng-template>
-        <ng-template ngbSlide>bar</ng-template>
-      </ngb-carousel>
-    `;
+     <ngb-carousel>
+       <ng-template ngbSlide>foo</ng-template>
+       <ng-template ngbSlide>bar</ng-template>
+     </ngb-carousel>
+   `;
 
        const fixture = createTestComponent(html);
        const indicatorElms = fixture.nativeElement.querySelectorAll('ol.carousel-indicators > li');
@@ -631,12 +751,14 @@ describe('ngb-carousel', () => {
 
 @Component({selector: 'test-cmp', template: ''})
 class TestComponent {
+  addNewSlide = false;
   interval;
   activeSlideId;
   keyboard = true;
   pauseOnHover = true;
   showNavigationArrows = true;
   showNavigationIndicators = true;
+  slides = ['a', 'b'];
   carouselSlideCallBack = (event: NgbSlideEvent) => {};
 }
 

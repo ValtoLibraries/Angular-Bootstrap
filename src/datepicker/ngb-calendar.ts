@@ -2,10 +2,10 @@ import {NgbDate} from './ngb-date';
 import {Injectable} from '@angular/core';
 import {isInteger} from '../util/util';
 
-function fromJSDate(jsDate: Date) {
+export function fromJSDate(jsDate: Date) {
   return new NgbDate(jsDate.getFullYear(), jsDate.getMonth() + 1, jsDate.getDate());
 }
-function toJSDate(date: NgbDate) {
+export function toJSDate(date: NgbDate) {
   const jsDate = new Date(date.year, date.month - 1, date.day, 12);
   // this is done avoid 30 -> 1930 conversion
   if (!isNaN(jsDate.getTime())) {
@@ -35,7 +35,7 @@ export abstract class NgbCalendar {
    * Returns an array of months per year.
    * With default calendar we use ISO 8601 and return [1, 2, ..., 12];
    */
-  abstract getMonths(): number[];
+  abstract getMonths(year?: number): number[];
 
   /**
    * Returns number of weeks per month.
@@ -135,6 +135,11 @@ export class NgbCalendarGregorian extends NgbCalendar {
 
   isValid(date: NgbDate): boolean {
     if (!date || !isInteger(date.year) || !isInteger(date.month) || !isInteger(date.day)) {
+      return false;
+    }
+
+    // year 0 doesn't exist in Gregorian calendar
+    if (date.year === 0) {
       return false;
     }
 

@@ -111,8 +111,10 @@ function expectFocusedDate(element: DebugElement, focusableDate: NgbDate, isFocu
 
 function expectSameValues(datepicker: NgbDatepicker, config: NgbDatepickerConfig) {
   expect(datepicker.dayTemplate).toBe(config.dayTemplate);
+  expect(datepicker.dayTemplateData).toBe(config.dayTemplateData);
   expect(datepicker.displayMonths).toBe(config.displayMonths);
   expect(datepicker.firstDayOfWeek).toBe(config.firstDayOfWeek);
+  expect(datepicker.footerTemplate).toBe(config.footerTemplate);
   expect(datepicker.markDisabled).toBe(config.markDisabled);
   expect(datepicker.minDate).toEqual(config.minDate);
   expect(datepicker.maxDate).toEqual(config.maxDate);
@@ -125,7 +127,9 @@ function expectSameValues(datepicker: NgbDatepicker, config: NgbDatepickerConfig
 
 function customizeConfig(config: NgbDatepickerConfig) {
   config.dayTemplate = {} as TemplateRef<DayTemplateContext>;
+  config.dayTemplateData = (date, current) => 42;
   config.firstDayOfWeek = 2;
+  config.footerTemplate = {} as TemplateRef<any>;
   config.markDisabled = (date, current) => false;
   config.minDate = {year: 2000, month: 1, day: 1};
   config.maxDate = {year: 2030, month: 12, day: 31};
@@ -320,14 +324,6 @@ describe('ngb-datepicker', () => {
     expectMaxDate(10000, 1);
   });
 
-  it('should support disabling dates via callback', () => {
-    const fixture = createTestComponent(
-        `<ngb-datepicker [startDate]="date" [minDate]="minDate" [maxDate]="maxDate" [markDisabled]="markDisabled"></ngb-datepicker>`);
-
-    // 22 AUG 2016
-    expect(getDay(fixture.nativeElement, 21)).toHaveCssClass('text-muted');
-  });
-
   it('should support disabling dates via min/max dates', () => {
     const fixture = createTestComponent(
         `<ngb-datepicker [startDate]="date" [minDate]="minDate" [maxDate]="maxDate"></ngb-datepicker>`);
@@ -352,6 +348,16 @@ describe('ngb-datepicker', () => {
 
     // 22 AUG 2016
     expect(getDay(fixture.nativeElement, 21)).toHaveCssClass('text-muted');
+  });
+
+  it('should support passing custom data to the day template', () => {
+    const fixture = createTestComponent(`
+      <ng-template #dt let-date="date" let-data="data"><div>{{ date.day }}{{ data }}</div></ng-template>
+      <ngb-datepicker [startDate]="date" [dayTemplate]="dt" [dayTemplateData]="dayTemplateData"></ngb-datepicker>
+    `);
+
+    // 22 AUG 2016
+    expect(getDay(fixture.nativeElement, 21).innerText).toBe('22!');
   });
 
   it('should display multiple months', () => {
@@ -608,6 +614,15 @@ describe('ngb-datepicker', () => {
     triggerKeyDown(getMonthContainer(datepicker), 32 /* space */);
     fixture.detectChanges();
     expect(fixture.componentInstance.onSelect).toHaveBeenCalledTimes(2);
+  });
+
+  it('should insert an embedded view for footer when `footerTemplate` provided', () => {
+    const fixture = createTestComponent(`<ngb-datepicker #dp [footerTemplate]="footerTemplate"></ngb-datepicker>
+      <ng-template #footerTemplate><span id="myDatepickerFooter">My footer</span></ng-template>`);
+
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('#myDatepickerFooter')).not.toBeNull();
   });
 
   describe('ngModel', () => {
@@ -1048,6 +1063,46 @@ describe('ngb-datepicker', () => {
          }
          expect(fixture.nativeElement.querySelector('ngb-datepicker').getAttribute('tabindex')).toBeFalsy();
        }));
+
+    it('should not change again the value in the model on a change coming from the model (template-driven form)',
+       async(() => {
+         const html = `<form>
+             <ngb-datepicker [startDate]="date" [minDate]="minDate" [maxDate]="maxDate" [(ngModel)]="model" name="date">
+             </ngb-datepicker>
+           </form>`;
+
+         const fixture = createTestComponent(html);
+         fixture.detectChanges();
+
+         const value = new NgbDate(2018, 7, 28);
+         fixture.componentInstance.model = value;
+
+         fixture.detectChanges();
+         fixture.whenStable().then(() => { expect(fixture.componentInstance.model).toBe(value); });
+       }));
+
+    it('should not change again the value in the model on a change coming from the model (reactive form)', async(() => {
+         const html = `<form [formGroup]="form">
+             <ngb-datepicker [startDate]="date" [minDate]="minDate" [maxDate]="maxDate" formControlName="control">
+             </ngb-datepicker>
+           </form>`;
+
+         const fixture = createTestComponent(html);
+         fixture.detectChanges();
+
+         const formChangeSpy = jasmine.createSpy('form change');
+         const form = fixture.componentInstance.form;
+         form.valueChanges.subscribe(formChangeSpy);
+         const controlValue = new NgbDate(2018, 7, 28);
+         form.setValue({control: controlValue});
+
+         fixture.detectChanges();
+         fixture.whenStable().then(() => {
+           expect(formChangeSpy).toHaveBeenCalledTimes(1);
+           expect(form.value.control).toBe(controlValue);
+         });
+       }));
+
   });
 
   describe('Custom config', () => {
@@ -1078,7 +1133,7 @@ describe('ngb-datepicker', () => {
     });
 
     it('should initialize inputs with provided config as provider', () => {
-      const fixture = createGenericTestComponent('', NgbDatepicker);
+      const fixture = TestBed.createComponent(NgbDatepicker);
 
       const datepicker = fixture.componentInstance;
       expectSameValues(datepicker, config);
@@ -1097,6 +1152,7 @@ class TestComponent {
   disabledForm = new FormGroup({control: new FormControl({value: null, disabled: true})});
   model;
   showWeekdays = true;
+  dayTemplateData = () => '!';
   markDisabled = (date: NgbDateStruct) => { return NgbDate.from(date).equals(new NgbDate(2016, 8, 22)); };
   onNavigate = () => {};
   onSelect = () => {};

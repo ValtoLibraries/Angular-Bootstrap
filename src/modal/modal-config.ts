@@ -68,9 +68,11 @@ export interface NgbModalOptions {
 * Configuration object token for the NgbModal service.
 * You can provide this configuration, typically in your root module in order to provide default option values for every
 * modal.
+*
+* @since 3.1.0
 */
 @Injectable({providedIn: 'root'})
 export class NgbModalConfig implements NgbModalOptions {
-  backdrop = true;
+  backdrop: boolean | 'static' = true;
   keyboard = true;
 }
